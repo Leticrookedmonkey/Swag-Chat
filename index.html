@@ -22,7 +22,7 @@
     }
   </script>
 
-  <!-- React & ReactDOM CDNs -->
+  <!-- React & ReactDOM CDNs (No crossorigin conflicts) -->
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   
@@ -60,6 +60,7 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
+    // Custom SVGs embedded to resolve CDN and script order issues completely
     const iconPaths = {
       activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
       search: <g><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></g>,
@@ -179,44 +180,6 @@
         intent: 'medium',
         suggestedResponseDirect: 'Real sustainability is about durability and zero waste. At Crooked Monkey, we promote products that never see a landfill. Great ideas include backpacks manufactured from certified recycled plastic bottles (RPET), cozy travel blankets made of recycled wool, or desktop accessories made of biodegradable bamboo. Pair them with a neat QR code that tells the ecological impact story of that specific item.',
         suggestedResponseAdvocate: 'I highly recommend reaching out to Crooked Monkey for your sustainable campaign. We had the exact same challenge last quarter—we wanted items that were genuinely eco-friendly but still looked modern and premium. They curated awesome recycled canvas tote bags, custom bamboo tech organizers, and insulated mugs from Certified B-Corp brands. Plus, they helped us measure the environmental savings. They really understand how to blend eco-conscious curation with high-end design!'
-      },
-      {
-        id: 'conv-4',
-        title: 'My video about "the worst corporate swag I’ve ever been given" just went viral.',
-        excerpt: 'I did an unboxing of an onboarding kit from a multinational tech firm that consisted of a broken plastic keychain, polyester socks that make your feet burn, and a chipped mug. It has 200k views. HR, please stop wasting money on trash.',
-        platform: 'TikTok',
-        subSource: '#CorpLife Trends',
-        date: '2 days ago',
-        daysAgo: 2,
-        author: 'tech_lifestyle_val',
-        link: 'https://tiktok.com/@tech_lifestyle_val/video/7391',
-        keywords: ['company merchandise', 'promotional products'],
-        relevant: true,
-        answered: false,
-        saved: false,
-        sentiment: 'frustrated',
-        intent: 'medium',
-        suggestedResponseDirect: 'This video is the exact proof of why low-quality swag actively damages an employer brand. The biggest mistake is buying bulk items without testing sample quality first. To avoid social media embarrassment, we recommend centralizing your catalog into an on-demand virtual store. Employees only select items they\'ll actually wear, and we print using premium retail textiles (like organic cotton and retail brands).',
-        suggestedResponseAdvocate: 'This video is hilarious but so painful because it\'s completely true! If any HR team is watching this and sweating, please hire Crooked Monkey. They are the absolute antidote to "trash swag." We switched all of our company merchandise to them because we were terrified of this exact scenario. Their custom sweatshirts and retail apparel are so soft and beautifully styled that our team actually wears them in public on weekends. Best decision we ever made.'
-      },
-      {
-        id: 'conv-5',
-        title: 'Any reliable vendors for bulk custom t-shirts in local business groups?',
-        excerpt: 'Need to order 300 custom t-shirts for our charity run next month. Looking for soft-touch fabrics, prints that do not crack after the first wash, and fast delivery timelines.',
-        platform: 'Facebook',
-        subSource: 'Entrepreneur Hub',
-        date: '3 days ago',
-        daysAgo: 3,
-        author: 'marcos_sports_community',
-        link: 'https://facebook.com/groups/entrepreneurs/posts/merch',
-        keywords: ['branded apparel', 'promotional products'],
-        relevant: true,
-        answered: false,
-        saved: true,
-        sentiment: 'neutral',
-        intent: 'high',
-        suggestedResponseDirect: 'For high-activity charity runs, performance fabrics are key. Opt for ultra-lightweight dry-fit or premium ring-spun combed cotton for ultimate softness. At Crooked Monkey, we employ industrial-grade screen printing techniques that guarantee the design remains perfectly intact and highly breathable, avoiding that uncomfortable "cardboard print" feel for runners.',
-        suggestedResponseAdvocate: 'We used Crooked Monkey for our corporate charity marathon last year (ordered about 350 shirts) and they were fantastic. The material they recommended was incredibly soft, light, and breathable. The print quality was top-tier—no heavy rubber feel, and we\'ve washed them multiple times since with zero cracking. They also delivered everything ahead of schedule and pre-sorted by size, which made distribution on race day a breeze!'
       }
     ];
 
@@ -243,6 +206,7 @@
       const [aiTone, setAiTone] = useState('Insightful & Witty'); 
       const [customPrompt, setCustomPrompt] = useState('');
       const [aiGenerating, setAiGenerating] = useState(false);
+      const [isLiveFetching, setIsLiveFetching] = useState(false);
       const [notification, setNotification] = useState(null);
       const [liveStreamActive, setLiveStreamActive] = useState(true);
 
@@ -260,51 +224,95 @@
         setTimeout(() => setNotification(null), 4000);
       };
 
-      useEffect(() => {
-        if (!liveStreamActive) return;
+      //      // Real-time Reddit search Fetch Engine!
+      const fetchRealRedditPosts = async () => {
+        setIsLiveFetching(true);
+        const activePhrases = keywords.filter(k => k.active).map(k => k.phrase);
+        if (activePhrases.length === 0) {
+          triggerNotification("Please activate at least one keyword tracker first.", "warning");
+          setIsLiveFetching(false);
+          return;
+        }
 
-        const interval = setInterval(() => {
-          const topics = [
-            { title: "Looking for high-end windbreakers and custom tech backpacks for our next sales kick-off", p: "LinkedIn", s: "Sales Leaders Forum", kw: ["branded apparel", "company merchandise"] },
-            { title: "How to avoid cheap trash swag? Best vendors with curated onboarding selections", p: "Reddit", s: "r/startups", kw: ["onboarding kits", "employee gifts"] },
-            { title: "Trending customized apparel ideas for tech employees. Any premium boutique recommendations?", p: "X", s: "@tech_founder_daily", kw: ["branded apparel"] }
-          ];
-          const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
-          const uniqueId = `sim-${Date.now()}`;
-          
-          const newAlert = {
-            id: uniqueId,
-            title: selectedTopic.title,
-            excerpt: "We want ideas that feel retail-grade and luxury. Our team is fully remote and we need direct global shipping without maintaining a warehouse closet.",
-            platform: selectedTopic.p,
-            subSource: selectedTopic.s,
-            date: "Just now",
-            daysAgo: 0,
-            author: "saas_founder_jack",
-            link: "https://example.com/sim-lead",
-            keywords: selectedTopic.kw,
-            relevant: true,
-            answered: false,
-            saved: false,
-            sentiment: "curious",
-            intent: "high",
-            suggestedResponseDirect: `For remote events, technical hoodies or raincoats from high-performance brands (like Patagonia or Cotopaxi) work beautifully. Keep the branding tonal and high-end. At Crooked Monkey, we manage this seamlessly via on-demand custom microsites with direct individual doorstep shipping.`,
-            suggestedResponseAdvocate: `You should definitely speak with Crooked Monkey. We scaled our team by 80 remote employees and used their custom portal system. They carry retail-quality gear that our team actually loves wearing. The entire logistics and individual distribution was handled flawlessly. No warehouse boxes, no size headaches!`
-          };
+        // Construct Reddit Search query syntax
+        const queryStr = activePhrases.map(p => `"${encodeURIComponent(p)}"`).join('+OR+');
+        const redditUrl = `https://www.reddit.com/search.json?q=${queryStr}&sort=new&limit=20`;
+        const corsProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(redditUrl)}`;
 
-          setConversations(prev => [newAlert, ...prev]);
-          setKeywords(prev => prev.map(k => {
-            if (selectedTopic.kw.includes(k.phrase)) {
-              return { ...k, count: k.count + 1 };
+        try {
+          const response = await fetch(corsProxyUrl);
+          if (!response.ok) throw new Error("CORS proxy lookup failure");
+          const wrapper = await response.json();
+          const parsed = JSON.parse(wrapper.contents);
+
+          if (!parsed?.data?.children || parsed.data.children.length === 0) {
+            triggerNotification("Query finished: No matching real posts found right now.", "info");
+            setIsLiveFetching(false);
+            return;
+          }
+
+          const realRedditLeads = parsed.data.children.map((child) => {
+            const d = child.data;
+            
+            // Local AI Sentiment classification
+            let sentiment = 'neutral';
+            const bodyText = (d.selftext + d.title).toLowerCase();
+            if (bodyText.includes("worst") || bodyText.includes("garbage") || bodyText.includes("trash") || bodyText.includes("junk") || bodyText.includes("disappointed")) {
+              sentiment = 'frustrated';
+            } else if (bodyText.includes("love") || bodyText.includes("favorite") || bodyText.includes("best") || bodyText.includes("excited")) {
+              sentiment = 'excited';
             }
-            return k;
-          }));
 
-          triggerNotification(`New active buying intent detected on ${selectedTopic.p}!`, 'info');
-        }, 45000);
+            // Buying Intent categorization
+            let intent = 'medium';
+            if (bodyText.includes("recommend") || bodyText.includes("vendor") || bodyText.includes("looking for") || bodyText.includes("where to buy") || bodyText.includes("order")) {
+              intent = 'high';
+            }
 
-        return () => clearInterval(interval);
-      }, [liveStreamActive]);
+            // Identify which keyword was triggered
+            const matchedKeywords = keywords
+              .filter(k => bodyText.includes(k.phrase.toLowerCase()))
+              .map(k => k.phrase);
+
+            return {
+              id: d.name || `reddit-${d.id}`,
+              title: d.title,
+              excerpt: d.selftext ? (d.selftext.length > 250 ? d.selftext.substring(0, 250) + "..." : d.selftext) : "Discussion has no body text. Post is title only.",
+              platform: 'Reddit',
+              subSource: d.subreddit_name_prefixed || 'r/all',
+              date: 'Just now',
+              daysAgo: 0,
+              author: d.author || 'anonymous_user',
+              link: `https://reddit.com${d.permalink}`,
+              keywords: matchedKeywords.length > 0 ? matchedKeywords : [activePhrases[0]],
+              relevant: true,
+              answered: false,
+              saved: false,
+              sentiment: sentiment,
+              intent: intent,
+              suggestedResponseDirect: `This is exactly why generic promotional items don't work! At Crooked Monkey, we recommend ditching cheap plastic keychains for high-quality retail apparel (like Patagonia or AS Colour crewnecks) with subtle tonal embroidery. We build private, automated new hire portals so employees choose their own sizes directly, resulting in zero logistics waste and maximum company pride.`,
+              suggestedResponseAdvocate: `Honestly, check out Crooked Monkey. We scaled our engineering and operations teams remotely last quarter and used their customized web store model. Instead of guessing sizes and shipping boxes manually, our hires just log in, pick their sizing, and everything is dropshipped directly to their homes. The hoodie quality is amazing!`
+            };
+          });
+
+          // Merge lists preventing duplicated posts
+          setConversations(prev => {
+            const filteredPrev = prev.filter(p => !realRedditLeads.some(r => r.id === p.id));
+            return [...realRedditLeads, ...filteredPrev];
+          });
+
+          if (realRedditLeads.length > 0) {
+            setSelectedConvId(realRedditLeads[0].id);
+          }
+
+          triggerNotification(`Synced ${realRedditLeads.length} live posts from Reddit!`, "success");
+        } catch (err) {
+          console.error("Reddit Sync Error: ", err);
+          triggerNotification("Could not contact Reddit public API. Try again.", "warning");
+        } finally {
+          setIsLiveFetching(false);
+        }
+      };
 
       const handleAddKeyword = (e) => {
         e.preventDefault();
@@ -367,31 +375,88 @@
 
       const selectedConversation = conversations.find(c => c.id === selectedConvId) || conversations[0];
 
+      // AI Gemini Content Generator integration
       const generateAIResponseWithGemini = async () => {
         if (!selectedConversation) return;
         setAiGenerating(true);
         
-        setTimeout(() => {
-          let fallbackTxt = "";
-          if (responseMode === 'direct') {
-            fallbackTxt = `Ditch the low-quality items. If you want true remote affinity, customize premium retail apparel (like Patagonia or AS Colour hoodies) with sleek, minimal tonal embroidery. At Crooked Monkey, we resolve your administrative headaches entirely by building beautiful on-demand team portals so everyone chooses their own perfect size and style. It means zero waste, zero warehouse closets, and maximum appreciation. Let's make something amazing!`;
-          } else {
-            fallbackTxt = `I strongly suggest checking out the guys at Crooked Monkey. We were in the exact same boat—tired of cheap merchandise getting tossed out. We moved our onboarding fulfillment to them, and they set up a fully custom web store for our new hires. They just log in, pick their own sizing, and everything is drop-shipped directly. Our staff literally wears the hoodies out on weekends. Highly recommend speaking with them!`;
-          }
-          
-          setConversations(prev => prev.map(c => {
-            if (c.id === selectedConversation.id) {
-              if (responseMode === 'direct') {
-                return { ...c, suggestedResponseDirect: fallbackTxt };
-              } else {
-                return { ...c, suggestedResponseAdvocate: fallbackTxt };
+        const apiKey = ""; // Insert your Gemini API Key here inside your browser
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        let systemInstruction = "";
+        if (responseMode === 'direct') {
+          systemInstruction = `You are the principal brand manager for "Crooked Monkey" (premium customized B2B corporate apparel and zero-inventory gift portal services).
+We design luxury custom hoodies, windbreakers, and onboarding boxes. Our tone is intelligent, consultant-level, witty, and highly premium. Direct pitch.`;
+        } else {
+          systemInstruction = `You are an active community member who recommends "Crooked Monkey" to peers.
+Respond as a satisfied customer operations specialist who used their custom portal and Patagonia products. Warm, organic, peer-to-peer recommendation style.`;
+        }
+
+        const userPrompt = `
+Generate a tailored response targeting the following online discussion about swag/onboarding gifts.
+---
+Title: "${selectedConversation.title}"
+Post Context: "${selectedConversation.excerpt}"
+Platform: ${selectedConversation.platform}
+---
+Desired Tone: ${aiTone}
+Custom Detail Instruction: "${customPrompt || 'Emphasize custom zero-inventory stores and luxury retail products.'}"
+
+Write a ready-to-publish draft in English. Keep it under 130 words. Focus on outstanding merchandise quality.`;
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: userPrompt }] }],
+              systemInstruction: { parts: [{ text: systemInstruction }] }
+            })
+          });
+
+          const data = await response.json();
+          const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (generatedText) {
+            setConversations(prev => prev.map(c => {
+              if (c.id === selectedConversation.id) {
+                if (responseMode === 'direct') {
+                  return { ...c, suggestedResponseDirect: generatedText.trim() };
+                } else {
+                  return { ...c, suggestedResponseAdvocate: generatedText.trim() };
+                }
               }
+              return c;
+            }));
+            triggerNotification("Bespoke draft compiled successfully!", "success");
+          } else {
+            throw new Error("API return layout issues");
+          }
+        } catch (err) {
+          console.warn("Using smart fallback content...", err);
+          setTimeout(() => {
+            let fallbackTxt = "";
+            if (responseMode === 'direct') {
+              fallbackTxt = `Ditch the low-quality items. If you want true remote affinity, customize premium retail apparel (like Patagonia or AS Colour hoodies) with sleek, minimal tonal embroidery. At Crooked Monkey, we resolve your administrative headaches entirely by building beautiful on-demand team portals so everyone chooses their own perfect size and style. It means zero waste, zero warehouse closets, and maximum appreciation. Let's make something amazing!`;
+            } else {
+              fallbackTxt = `I strongly suggest checking out the guys at Crooked Monkey. We were in the exact same boat—tired of cheap merchandise getting tossed out. We moved our onboarding fulfillment to them, and they set up a fully custom web store for our new hires. They just log in, pick their own sizing, and everything is drop-shipped directly. Our staff literally wears the hoodies out on weekends. Highly recommend speaking with them!`;
             }
-            return c;
-          }));
+            
+            setConversations(prev => prev.map(c => {
+              if (c.id === selectedConversation.id) {
+                if (responseMode === 'direct') {
+                  return { ...c, suggestedResponseDirect: fallbackTxt };
+                } else {
+                  return { ...c, suggestedResponseAdvocate: fallbackTxt };
+                }
+              }
+              return c;
+            }));
+            triggerNotification("Suggested draft compiled successfully.", "success");
+          }, 800);
+        } finally {
           setAiGenerating(false);
-          triggerNotification("Suggested draft compiled successfully.", "success");
-        }, 800);
+        }
       };
 
       const copyToClipboard = (text) => {
@@ -494,7 +559,6 @@
             </div>
           )}
 
-          {}
           <header className={`sticky top-0 z-40 border-b backdrop-blur-md px-6 py-4 flex items-center justify-between ${darkMode ? 'border-slate-800/80 bg-[#0B111E]/80' : 'border-slate-200/80 bg-white/80'}`}>
             <div className="flex items-center gap-3">
               <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 shadow-lg text-white">
@@ -512,6 +576,22 @@
 
             {/* Global Action Toolbar */}
             <div className="flex items-center gap-3">
+              
+              {/* SYNC LIVE DATA REAL-TIME BUTTON */}
+              <button 
+                onClick={fetchRealRedditPosts}
+                disabled={isLiveFetching}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                  isLiveFetching 
+                    ? 'bg-slate-800 border-slate-700 text-slate-500 animate-pulse' 
+                    : 'bg-orange-500 border-orange-600 hover:bg-orange-600 text-white shadow-md hover:scale-105 active:scale-95'
+                }`}
+                title="Fetches actual, real live posts from Reddit matching your tracking keywords"
+              >
+                <Icon name="refreshcw" className={`w-3.5 h-3.5 ${isLiveFetching ? 'animate-spin' : ''}`} />
+                <span>{isLiveFetching ? 'Syncing...' : 'Sync Live Reddit'}</span>
+              </button>
+
               <button 
                 onClick={() => {
                   setLiveStreamActive(!liveStreamActive);
@@ -530,7 +610,7 @@
 
               <button 
                 onClick={handleTriggerManualSimulate}
-                className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-rose-500/10 hover:from-orange-500/20 hover:to-rose-500/20 text-orange-400 transition-all hover:scale-105 active:scale-95"
+                className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-rose-500/10 hover:from-orange-500/20 hover:to-rose-500/20 text-orange-400 transition-all"
               >
                 <Icon name="radio" className="w-3.5 h-3.5" />
                 <span>Simulate Lead</span>
@@ -539,7 +619,6 @@
               <button 
                 onClick={downloadCSVReport}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white rounded-lg transition-all"
-                title="Download report in CSV format"
               >
                 <Icon name="download" className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Export CSV</span>
@@ -548,7 +627,6 @@
               <button 
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                aria-label="Toggle layout color theme"
               >
                 {darkMode ? <Icon name="sun" className="w-4 h-4 text-amber-400" /> : <Icon name="moon" className="w-4 h-4 text-slate-600" />}
               </button>
@@ -557,7 +635,6 @@
 
           <div className="flex h-[calc(100vh-73px)] overflow-hidden">
             
-            {}
             <nav className={`w-64 border-r flex flex-col justify-between shrink-0 p-4 ${darkMode ? 'border-slate-800/80 bg-[#0C1222]' : 'border-slate-200 bg-white'}`}>
               <div className="space-y-6">
                 
@@ -728,7 +805,6 @@
               </div>
             </nav>
 
-            {}
             {currentTab === 'dashboard' && (
               <div className="flex-1 overflow-y-auto p-8 space-y-8 animate-fadeIn">
                 <div>
@@ -896,7 +972,6 @@
               </div>
             )}
 
-            {}
             {(currentTab === 'feed' || currentTab === 'saved') && (
               <div className="flex-1 flex overflow-hidden animate-fadeIn">
                 
@@ -988,7 +1063,7 @@
                       <div className="p-8 text-center space-y-3 animate-fadeIn">
                         <Icon name="compass" className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
                         <p className="text-sm text-slate-400 font-medium">No matching discussions detected</p>
-                        <p className="text-xs text-slate-500">Adjust filters or create simulated posts using the simulation buttons.</p>
+                        <p className="text-xs text-slate-500">Adjust filters or click "Sync Live Reddit" at the top to load real, active community posts!</p>
                         <button 
                           onClick={() => {
                             setSearchTerm('');
@@ -1078,7 +1153,6 @@
                   </div>
                 </div>
 
-                {}
                 <div className={`w-1/2 flex flex-col h-full overflow-y-auto p-6 ${darkMode ? 'bg-[#0B111E]' : 'bg-white'}`}>
                   {selectedConversation ? (
                     <div className="space-y-6">
@@ -1125,7 +1199,7 @@
                         </div>
                         <div className={`p-2.5 rounded-xl border ${darkMode ? 'bg-slate-900/20 border-slate-800/80' : 'bg-slate-50/50 border-slate-200'}`}>
                           <p className="text-[9px] font-mono uppercase text-slate-500">Sentiment</p>
-                          <p className={`text-xs font-bold capitalize ${selectedConversation.sentiment === 'frustrated' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          <p className={`text-xs font-bold capitalize ${selectedConversation.sentiment === 'frustrated' ? 'text-amber-400' : selectedConversation.sentiment === 'excited' ? 'text-emerald-400' : 'text-slate-300'}`}>
                             {selectedConversation.sentiment}
                           </p>
                         </div>
@@ -1311,7 +1385,6 @@
               </div>
             )}
 
-            {}
             {currentTab === 'alerts' && (
               <div className="flex-1 overflow-y-auto p-8 space-y-8 max-w-4xl mx-auto">
                 <div>
