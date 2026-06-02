@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SWAG CHAT - AI Intent Monitor</title>
+  <title>SWAG CHAT - AI Intent Monitor & Google Search</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -22,7 +22,7 @@
     }
   </script>
 
-  <!-- React & ReactDOM CDNs (No crossorigin conflicts) -->
+  <!-- React & ReactDOM CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   
@@ -30,7 +30,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.0/babel.min.js"></script>
 
   <style>
-    /* Premium scrollbar styles */
+    /* Scrollbar styles */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -60,7 +60,6 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // Custom SVGs embedded to resolve CDN and script order issues completely
     const iconPaths = {
       activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
       search: <g><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></g>,
@@ -202,13 +201,27 @@
       const [searchTerm, setSearchTerm] = useState('');
       const [darkMode, setDarkMode] = useState(true);
       const [newKeyword, setNewKeyword] = useState('');
+      
       const [responseMode, setResponseMode] = useState('direct');
       const [aiTone, setAiTone] = useState('Insightful & Witty'); 
       const [customPrompt, setCustomPrompt] = useState('');
       const [aiGenerating, setAiGenerating] = useState(false);
+      
       const [isLiveFetching, setIsLiveFetching] = useState(false);
       const [notification, setNotification] = useState(null);
       const [liveStreamActive, setLiveStreamActive] = useState(true);
+
+      // Google Custom Search API Keys
+      const [googleApiKey, setGoogleApiKey] = useState(() => localStorage.getItem('sm_google_api_key') || '');
+      const [googleCx, setGoogleCx] = useState(() => localStorage.getItem('sm_google_cx_id') || '');
+      const [showGoogleSettings, setShowGoogleSettings] = useState(false);
+
+      // Manual Lead Ingestion box
+      const [manualTitle, setManualTitle] = useState('');
+      const [manualExcerpt, setManualExcerpt] = useState('');
+      const [manualPlatform, setManualPlatform] = useState('Reddit');
+      const [manualAuthor, setManualAuthor] = useState('');
+      const [showManualIngest, setShowManualIngest] = useState(false);
 
       useEffect(() => {
         const root = window.document.documentElement;
@@ -224,94 +237,153 @@
         setTimeout(() => setNotification(null), 4000);
       };
 
-      //      // Real-time Reddit search Fetch Engine!
-      const fetchRealRedditPosts = async () => {
+      const handleSaveGoogleConfig = (e) => {
+        e.preventDefault();
+        localStorage.setItem('sm_google_api_key', googleApiKey.trim());
+        localStorage.setItem('sm_google_cx_id', googleCx.trim());
+        triggerNotification("Google API credentials stored safely in your browser!");
+        setShowGoogleSettings(false);
+      };
+
+      const fetchLiveGoogleSearch = async () => {
+        if (!googleApiKey || !googleCx) {
+          setShowGoogleSettings(true);
+          triggerNotification("Please configure your Google Custom Search API Keys first.", "warning");
+          return;
+        }
+
         setIsLiveFetching(true);
         const activePhrases = keywords.filter(k => k.active).map(k => k.phrase);
         if (activePhrases.length === 0) {
-          triggerNotification("Please activate at least one keyword tracker first.", "warning");
+          triggerNotification("Please activate at least one keyword tracker on the left.", "warning");
           setIsLiveFetching(false);
           return;
         }
 
-        // Construct Reddit Search query syntax
-        const queryStr = activePhrases.map(p => `"${encodeURIComponent(p)}"`).join('+OR+');
-        const redditUrl = `https://www.reddit.com/search.json?q=${queryStr}&sort=new&limit=20`;
-        const corsProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(redditUrl)}`;
+        // Build premium query matching exact target sites and keyword intents
+        const targetSites = "site:reddit.com OR site:quora.com OR site:linkedin.com OR site:news.ycombinator.com";
+        const randomPhrase = activePhrases[Math.floor(Math.random() * activePhrases.length)];
+        const searchQuery = `${targetSites} "${randomPhrase}" ("recommend" OR "looking for" OR "suggest" OR "vendors")`;
+        
+        const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(googleApiKey)}&cx=${encodeURIComponent(googleCx)}&q=${encodeURIComponent(searchQuery)}`;
 
         try {
-          const response = await fetch(corsProxyUrl);
-          if (!response.ok) throw new Error("CORS proxy lookup failure");
-          const wrapper = await response.json();
-          const parsed = JSON.parse(wrapper.contents);
-
-          if (!parsed?.data?.children || parsed.data.children.length === 0) {
-            triggerNotification("Query finished: No matching real posts found right now.", "info");
+          const response = await fetch(endpoint);
+          if (!response.ok) {
+            const errInfo = await response.json();
+            throw new Error(errInfo?.error?.message || "Google API response failure");
+          }
+          
+          const result = await response.json();
+          if (!result.items || result.items.length === 0) {
+            triggerNotification(`No active results found for query: "${randomPhrase}"`, "info");
             setIsLiveFetching(false);
             return;
           }
 
-          const realRedditLeads = parsed.data.children.map((child) => {
-            const d = child.data;
+          const parsedLeads = result.items.map((item, index) => {
+            const title = item.title;
+            const link = item.link;
+            const snippet = item.snippet;
             
-            // Local AI Sentiment classification
-            let sentiment = 'neutral';
-            const bodyText = (d.selftext + d.title).toLowerCase();
-            if (bodyText.includes("worst") || bodyText.includes("garbage") || bodyText.includes("trash") || bodyText.includes("junk") || bodyText.includes("disappointed")) {
-              sentiment = 'frustrated';
-            } else if (bodyText.includes("love") || bodyText.includes("favorite") || bodyText.includes("best") || bodyText.includes("excited")) {
-              sentiment = 'excited';
-            }
+            // Auto detect platform based on URL
+            let platform = "Public forums";
+            if (link.includes("reddit.com")) platform = "Reddit";
+            else if (link.includes("linkedin.com")) platform = "LinkedIn";
+            else if (link.includes("quora.com")) platform = "Quora";
+            else if (link.includes("ycombinator.com")) platform = "Hacker News";
 
-            // Buying Intent categorization
-            let intent = 'medium';
-            if (bodyText.includes("recommend") || bodyText.includes("vendor") || bodyText.includes("looking for") || bodyText.includes("where to buy") || bodyText.includes("order")) {
-              intent = 'high';
+            // Determine buying intent and sentiment
+            let intent = "medium";
+            if (snippet.toLowerCase().includes("buy") || snippet.toLowerCase().includes("hire") || snippet.toLowerCase().includes("budget") || snippet.toLowerCase().includes("pricing")) {
+              intent = "high";
             }
-
-            // Identify which keyword was triggered
-            const matchedKeywords = keywords
-              .filter(k => bodyText.includes(k.phrase.toLowerCase()))
-              .map(k => k.phrase);
 
             return {
-              id: d.name || `reddit-${d.id}`,
-              title: d.title,
-              excerpt: d.selftext ? (d.selftext.length > 250 ? d.selftext.substring(0, 250) + "..." : d.selftext) : "Discussion has no body text. Post is title only.",
-              platform: 'Reddit',
-              subSource: d.subreddit_name_prefixed || 'r/all',
-              date: 'Just now',
+              id: `google-${Date.now()}-${index}`,
+              title: title.split(" - ")[0],
+              excerpt: snippet,
+              platform: platform,
+              subSource: "Google Live Search",
+              date: "Just synchronized",
               daysAgo: 0,
-              author: d.author || 'anonymous_user',
-              link: `https://reddit.com${d.permalink}`,
-              keywords: matchedKeywords.length > 0 ? matchedKeywords : [activePhrases[0]],
+              author: "live_user",
+              link: link,
+              keywords: [randomPhrase],
               relevant: true,
               answered: false,
               saved: false,
-              sentiment: sentiment,
+              sentiment: snippet.toLowerCase().includes("worst") || snippet.toLowerCase().includes("bad") ? "frustrated" : "curious",
               intent: intent,
-              suggestedResponseDirect: `This is exactly why generic promotional items don't work! At Crooked Monkey, we recommend ditching cheap plastic keychains for high-quality retail apparel (like Patagonia or AS Colour crewnecks) with subtle tonal embroidery. We build private, automated new hire portals so employees choose their own sizes directly, resulting in zero logistics waste and maximum company pride.`,
-              suggestedResponseAdvocate: `Honestly, check out Crooked Monkey. We scaled our engineering and operations teams remotely last quarter and used their customized web store model. Instead of guessing sizes and shipping boxes manually, our hires just log in, pick their sizing, and everything is dropshipped directly to their homes. The hoodie quality is amazing!`
+              suggestedResponseDirect: `This is a perfect fit for Crooked Monkey! If you are organizing a campaign for "${randomPhrase}", ditch low-grade catalog items. High-quality retail-brand apparel and beautifully packaged zero-inventory customized stores ensure that employees literally wear your brand everywhere. Let us manage sizes, dropshipping, and premium custom production for you.`,
+              suggestedResponseAdvocate: `Honestly, check out Crooked Monkey for "${randomPhrase}". Our operation group scaled up last year and used their custom portal setup. They hold authentic retail brands, handle sizing collections directly on their web link, and individual staff packages get shipped directly. The hoodies they printed are exceptional quality.`
             };
           });
 
-          // Merge lists preventing duplicated posts
           setConversations(prev => {
-            const filteredPrev = prev.filter(p => !realRedditLeads.some(r => r.id === p.id));
-            return [...realRedditLeads, ...filteredPrev];
+            const filteredPrev = prev.filter(p => !parsedLeads.some(r => r.link === p.link));
+            return [...parsedLeads, ...filteredPrev];
           });
 
-          if (realRedditLeads.length > 0) {
-            setSelectedConvId(realRedditLeads[0].id);
+          if (parsedLeads.length > 0) {
+            setSelectedConvId(parsedLeads[0].id);
           }
 
-          triggerNotification(`Synced ${realRedditLeads.length} live posts from Reddit!`, "success");
+          triggerNotification(`Successfully ingested ${parsedLeads.length} live Google Search results!`, "success");
+
         } catch (err) {
-          console.error("Reddit Sync Error: ", err);
-          triggerNotification("Could not contact Reddit public API. Try again.", "warning");
+          console.error("Google Sync Error: ", err);
+          triggerNotification(`Google API Error: ${err.message}`, "warning");
         } finally {
           setIsLiveFetching(false);
         }
+      };
+
+      // Launch manual advanced queries straight to standard Google search
+      const handleOpenAdvancedGoogleSearch = () => {
+        const activePhrases = keywords.filter(k => k.active).map(k => k.phrase);
+        const randomPhrase = activePhrases.length > 0 ? activePhrases[0] : "onboarding kits";
+        const advancedQuery = `site:reddit.com OR site:quora.com OR site:linkedin.com "${randomPhrase}" ("looking for" OR "recommend" OR "worst swag")`;
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(advancedQuery)}`;
+        window.open(googleUrl, '_blank');
+        triggerNotification("Launched advanced Google query. Copy/paste any results into the Ingestion panel!");
+      };
+
+      // Manual Lead Ingestor handler
+      const handleManualIngest = (e) => {
+        e.preventDefault();
+        if (!manualTitle.trim() || !manualExcerpt.trim()) {
+          triggerNotification("Please fill in both the Title and Description.", "warning");
+          return;
+        }
+
+        const newLead = {
+          id: `manual-${Date.now()}`,
+          title: manualTitle.trim(),
+          excerpt: manualExcerpt.trim(),
+          platform: manualPlatform,
+          subSource: "User Ingested",
+          date: "Just now",
+          daysAgo: 0,
+          author: manualAuthor.trim() || "anonymous_reporter",
+          link: "https://google.com",
+          keywords: ["custom kits"],
+          relevant: true,
+          answered: false,
+          saved: true,
+          sentiment: "curious",
+          intent: "high",
+          suggestedResponseDirect: `This is an amazing use case. Rather than bulk shipping cheap products, customize premium technical windbreakers or heavy cotton hoodies with minimalist embroidery. We host virtual company stores so you have zero sizing management overhead.`,
+          suggestedResponseAdvocate: `Honestly, go check out Crooked Monkey. We were overwhelmed trying to manage sizes and shipping boxes. They build a private portal for your hires where they input their own sizes and choose premium retail gear. The sweaters we ordered are super high-quality and get used constantly.`
+        };
+
+        setConversations(prev => [newLead, ...prev]);
+        setSelectedConvId(newLead.id);
+        setManualTitle('');
+        setManualExcerpt('');
+        setManualAuthor('');
+        setShowManualIngest(false);
+        triggerNotification("Lead ingested! AI Suggested responses are generating.");
       };
 
       const handleAddKeyword = (e) => {
@@ -544,7 +616,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
       };
 
       return (
-        <div className={`min-h-screen font-sans transition-colors duration-300 ${darkMode ? 'bg-[#0B111E] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+        <div className={`min-h-screen font-sans transition-colors duration-300 ${darkMode ? 'bg-[#0B111E]' : 'bg-slate-50 text-slate-900'}`}>
           
           {/* Toast Notification */}
           {notification && (
@@ -559,69 +631,217 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
             </div>
           )}
 
+          {}
+          {/* Google Credentials Drawer */}
+          {showGoogleSettings && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-[#0E1526] p-6 shadow-2xl text-left">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                  <h3 className="font-bold text-base text-orange-400 flex items-center gap-2">
+                    <Icon name="settings" className="w-5 h-5" />
+                    <span>Setup Google Custom Search</span>
+                  </h3>
+                  <button onClick={() => setShowGoogleSettings(false)} className="text-slate-400 hover:text-white">
+                    <Icon name="x" className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+                  Google Custom Search fetches matching posts from <strong>Reddit, LinkedIn, Quora, and more</strong> without being blocked.
+                </p>
+
+                <form onSubmit={handleSaveGoogleConfig} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Google Custom Search JSON API Key</label>
+                    <input 
+                      type="password" 
+                      placeholder="AIzaSy..." 
+                      value={googleApiKey}
+                      onChange={(e) => setGoogleApiKey(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-orange-500"
+                    />
+                    <a href="https://developers.google.com/custom-search/v1/overview" target="_blank" rel="noopener noreferrer" className="text-[10px] text-orange-400 hover:underline block pt-1">
+                      → Get a free Google API Key
+                    </a>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Search Engine ID (CX)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 1a2b3c4d5e6f7g8h9" 
+                      value={googleCx}
+                      onChange={(e) => setGoogleCx(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-orange-500"
+                    />
+                    <a href="https://programmablesearchengine.google.com/" target="_blank" rel="noopener noreferrer" className="text-[10px] text-orange-400 hover:underline block pt-1">
+                      → Create a Search Engine & get your CX ID
+                    </a>
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <button 
+                      type="submit" 
+                      className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-xs text-white shadow-md transition-all"
+                    >
+                      Save Configuration
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowGoogleSettings(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Manual Lead Ingester Drawer */}
+          {showManualIngest && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-[#0E1526] p-6 shadow-2xl text-left">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                  <h3 className="font-bold text-base text-orange-400 flex items-center gap-2">
+                    <Icon name="plus" className="w-5 h-5" />
+                    <span>Ingest Snippet / Conversation</span>
+                  </h3>
+                  <button onClick={() => setShowManualIngest(false)} className="text-slate-400 hover:text-white">
+                    <Icon name="x" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+                  Paste any thread title and body you find on Google, LinkedIn, or elsewhere to let Swag Chat draft responsive sales copy.
+                </p>
+
+                <form onSubmit={handleManualIngest} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Discussion Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g., Looking for corporate merch suppliers that print Patagonia fleece..."
+                      value={manualTitle}
+                      onChange={(e) => setManualTitle(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Platform Source</label>
+                      <select 
+                        value={manualPlatform}
+                        onChange={(e) => setManualPlatform(e.target.value)}
+                        className="w-full text-xs px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none"
+                      >
+                        <option value="Reddit">Reddit</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="TikTok">TikTok</option>
+                        <option value="Quora">Quora</option>
+                        <option value="X">X (Twitter)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Author Username</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. founder_jen"
+                        value={manualAuthor}
+                        onChange={(e) => setManualAuthor(e.target.value)}
+                        className="w-full text-xs px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Discussion Snippet / Content</label>
+                    <textarea 
+                      required
+                      rows="4"
+                      placeholder="Paste the post body or snippet from search results..."
+                      value={manualExcerpt}
+                      onChange={(e) => setManualExcerpt(e.target.value)}
+                      className="w-full text-xs p-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <button 
+                      type="submit" 
+                      className="flex-1 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-xs text-white shadow-md transition-all"
+                    >
+                      Ingest Opportunity
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowManualIngest(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {}
           <header className={`sticky top-0 z-40 border-b backdrop-blur-md px-6 py-4 flex items-center justify-between ${darkMode ? 'border-slate-800/80 bg-[#0B111E]/80' : 'border-slate-200/80 bg-white/80'}`}>
             <div className="flex items-center gap-3">
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 shadow-lg text-white">
+              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 via-rose-500 to-rose-600 shadow-lg text-white">
                 <Icon name="activity" className="w-5 h-5 animate-pulse" />
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-white dark:border-[#0B111E] rounded-full"></div>
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-orange-400 to-rose-500 bg-clip-text text-transparent">SWAG CHAT</span>
-                  <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 font-semibold uppercase">AI Listening</span>
+                  <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 font-semibold uppercase">Google Sync</span>
                 </div>
-                <p className="text-xs text-slate-400 font-medium">B2B Intent Monitor & AI Response Copilot</p>
+                <p className="text-xs text-slate-400 font-medium">Google-powered Social Listening & Copilot</p>
               </div>
             </div>
 
             {/* Global Action Toolbar */}
             <div className="flex items-center gap-3">
               
-              {/* SYNC LIVE DATA REAL-TIME BUTTON */}
+              {/* SYNC GOOGLE SEARCH API */}
               <button 
-                onClick={fetchRealRedditPosts}
+                onClick={fetchLiveGoogleSearch}
                 disabled={isLiveFetching}
                 className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
                   isLiveFetching 
                     ? 'bg-slate-800 border-slate-700 text-slate-500 animate-pulse' 
                     : 'bg-orange-500 border-orange-600 hover:bg-orange-600 text-white shadow-md hover:scale-105 active:scale-95'
                 }`}
-                title="Fetches actual, real live posts from Reddit matching your tracking keywords"
+                title="Perform query searches on Google API using your keywords"
               >
                 <Icon name="refreshcw" className={`w-3.5 h-3.5 ${isLiveFetching ? 'animate-spin' : ''}`} />
-                <span>{isLiveFetching ? 'Syncing...' : 'Sync Live Reddit'}</span>
+                <span>{isLiveFetching ? 'Searching Google...' : 'Sync Live Google'}</span>
               </button>
 
+              {/* SEARCH ON GOOGLE (Direct Fallback Link) */}
               <button 
-                onClick={() => {
-                  setLiveStreamActive(!liveStreamActive);
-                  triggerNotification(liveStreamActive ? 'Live simulated stream paused' : 'Live simulated stream resumed!');
-                }}
-                title="Toggle simulated stream alerts"
-                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                  liveStreamActive 
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-medium' 
-                    : 'border-slate-700 bg-slate-800/30 text-slate-400'
-                }`}
+                onClick={handleOpenAdvancedGoogleSearch}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white rounded-lg transition-all"
+                title="Search Google on another tab, then copy snippets to manual ingest!"
               >
-                <span className={`w-2 h-2 rounded-full ${liveStreamActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
-                {liveStreamActive ? 'Stream Active' : 'Stream Paused'}
+                <Icon name="globe" className="w-3.5 h-3.5" />
+                <span>Launch Google Web Search</span>
               </button>
 
+              {/* Configure Google Drawer */}
               <button 
-                onClick={handleTriggerManualSimulate}
-                className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-rose-500/10 hover:from-orange-500/20 hover:to-rose-500/20 text-orange-400 transition-all"
+                onClick={() => setShowGoogleSettings(true)}
+                className="p-2 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                title="Setup Custom Google API Keys"
               >
-                <Icon name="radio" className="w-3.5 h-3.5" />
-                <span>Simulate Lead</span>
-              </button>
-
-              <button 
-                onClick={downloadCSVReport}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white rounded-lg transition-all"
-              >
-                <Icon name="download" className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Export CSV</span>
+                <Icon name="settings" className="w-4 h-4" />
               </button>
 
               <button 
@@ -638,7 +858,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
             <nav className={`w-64 border-r flex flex-col justify-between shrink-0 p-4 ${darkMode ? 'border-slate-800/80 bg-[#0C1222]' : 'border-slate-200 bg-white'}`}>
               <div className="space-y-6">
                 
-                {/* Quick Profile */}
+                {/* Profile panel */}
                 <div className={`p-3 rounded-xl border flex items-center gap-3 ${darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                   <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center font-bold text-sm">
                     CM
@@ -649,7 +869,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   </div>
                 </div>
 
-                {/* Menu Links */}
+                {/* Sidebar Navigation */}
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2 px-2">Navigation</p>
                   <ul className="space-y-1">
@@ -664,7 +884,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                       >
                         <div className="flex items-center gap-2.5">
                           <Icon name="radio" className="w-4 h-4" />
-                          <span>Opportunity Feed</span>
+                          <span>Google Intent Feed</span>
                         </div>
                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold">
                           {conversations.length}
@@ -682,7 +902,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                         }`}
                       >
                         <Icon name="trendingup" className="w-4 h-4" />
-                        <span>Metrics & Trends</span>
+                        <span>Metrics & Google Stats</span>
                       </button>
                     </li>
 
@@ -697,7 +917,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                       >
                         <div className="flex items-center gap-2.5">
                           <Icon name="bell" className="w-4 h-4" />
-                          <span>Configure Alerts</span>
+                          <span>Alert Keyword Sets</span>
                         </div>
                         <span className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
                           {keywords.filter(k => k.active).length}
@@ -760,7 +980,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   </div>
                 </div>
 
-                {/* Keyword Spotlights */}
+                {/* Active Tracking Keywords */}
                 <div className="pt-2">
                   <div className="flex items-center justify-between mb-2 px-2">
                     <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Active Trackers</p>
@@ -793,23 +1013,42 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                     <span>Crooked Voice Active</span>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Suggested responses automatically prioritize sustainable retail apparel and managed-store tech.
+                    Suggested responses prioritize high-end technical jackets, recycled canvas bags, and automated team portals.
                   </p>
                 </div>
                 
                 <div className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
-                  <span>SWAG CHAT v1.2.0</span>
+                  <span>SWAG CHAT v1.3.0</span>
                   <span>•</span>
                   <a href="#" className="hover:underline">Docs</a>
                 </div>
               </div>
             </nav>
 
+            {/* Dashboard metrics tab */}
             {currentTab === 'dashboard' && (
               <div className="flex-1 overflow-y-auto p-8 space-y-8 animate-fadeIn">
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Intent & Trends Dashboard</h1>
-                  <p className="text-sm text-slate-400">Monitor active discussions and analyze key buyer intent metrics across social networks.</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Intent & Trends Dashboard</h1>
+                    <p className="text-sm text-slate-400">Monitor active discussions and analyze key Google index search trends for corporate gift campaigns.</p>
+                  </div>
+                  
+                  {/* CONFIG STATUS BANNER */}
+                  <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-semibold ${
+                    googleApiKey && googleCx 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                      : 'bg-orange-500/10 border-orange-500/20 text-orange-400'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${googleApiKey && googleCx ? 'bg-emerald-400 animate-ping' : 'bg-orange-400'}`}></span>
+                    <span>{googleApiKey && googleCx ? 'Google API Keys Configured' : 'Google API Keys Required'}</span>
+                    <button 
+                      onClick={() => setShowGoogleSettings(true)} 
+                      className="underline text-[10px] hover:text-white"
+                    >
+                      Settings
+                    </button>
+                  </div>
                 </div>
 
                 {/* Time Filter Tabs */}
@@ -830,7 +1069,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   ))}
                 </div>
 
-                {/* Main Stats Cards Grid */}
+                {/* Metrics Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Active Conversations</p>
@@ -840,14 +1079,14 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                         +24% <Icon name="trendingup" className="w-3 h-3" />
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500">Conversations identified in all feeds</p>
+                    <p className="text-[11px] text-slate-500">Conversations identified in Google searches</p>
                   </div>
 
                   <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">High-Intent Leads</p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-bold text-orange-400">{highIntentCount}</span>
-                      <span className="text-xs text-orange-400 font-bold">Actionable</span>
+                      <span className="text-xs text-orange-400 font-bold font-semibold">Actionable</span>
                     </div>
                     <p className="text-[11px] text-slate-500">Explicit request for corporate swag vendor</p>
                   </div>
@@ -871,7 +1110,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   </div>
                 </div>
 
-                {/* Visual Charts Layout */}
+                {}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   
                   {/* Keyword Volume Density */}
@@ -943,35 +1182,36 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                     <div className="pt-2 rounded-lg bg-slate-900/50 p-3 border border-slate-800 text-xs text-slate-400 flex items-start gap-2.5">
                       <Icon name="alertcircle" className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
                       <p>
-                        <strong>Global Trend Alert:</strong> Aesthetics focus in <strong>Instagram</strong> and <strong>TikTok</strong> has experienced a 35% growth, reflecting direct community desire for premium organic clothing items.
+                        <strong>Global Google Trend:</strong> Quality and material durability searches are up by 42% on Google index this quarter, showcasing massive consumer pushback against cheap polyester items.
                       </p>
                     </div>
                   </div>
 
                 </div>
 
-                {/* Interactive Simulation Banner */}
+                {/* Manual Ingestion Banner */}
                 <div className="p-6 rounded-2xl border border-dashed border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-rose-500/5 to-transparent flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 text-orange-400 font-bold">
                       <Icon name="zap" className="w-5 h-5 animate-bounce" />
-                      <span>Real-Time Playground Deploy</span>
+                      <span>Found an interesting thread outside the Google API?</span>
                     </div>
                     <p className="text-xs text-slate-400 max-w-xl font-medium">
-                      Manually trigger a simulated post regarding premium jackets or onboarding boxes and watch Swag Chat compile custom sales and advocate copy instantly.
+                      Manually paste the title, snippet text, and source link of any social media thread you discover, and Swag Chat will draft response scripts.
                     </p>
                   </div>
                   <button 
-                    onClick={handleTriggerManualSimulate}
+                    onClick={() => setShowManualIngest(true)}
                     className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-sm text-white shadow-lg transition-all active:scale-95 shrink-0 flex items-center gap-2"
                   >
-                    <Icon name="radio" className="w-4 h-4 animate-ping" />
-                    <span>Trigger Live Lead</span>
+                    <Icon name="plus" className="w-4 h-4" />
+                    <span>Ingest Snippet Manually</span>
                   </button>
                 </div>
               </div>
             )}
 
+            {/* Conversation Feed */}
             {(currentTab === 'feed' || currentTab === 'saved') && (
               <div className="flex-1 flex overflow-hidden animate-fadeIn">
                 
@@ -982,7 +1222,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   <div className="p-4 space-y-3 shrink-0">
                     <div className="flex items-center justify-between">
                       <h2 className="font-bold text-lg">
-                        {currentTab === 'saved' ? 'Saved Favorites' : 'Active Conversation Feed'}
+                        {currentTab === 'saved' ? 'Saved Favorites' : 'Google Opportunity Feed'}
                       </h2>
                       <span className="text-xs text-slate-400 font-mono">
                         {filteredConversations.length} leads matched
@@ -1063,7 +1303,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                       <div className="p-8 text-center space-y-3 animate-fadeIn">
                         <Icon name="compass" className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
                         <p className="text-sm text-slate-400 font-medium">No matching discussions detected</p>
-                        <p className="text-xs text-slate-500">Adjust filters or click "Sync Live Reddit" at the top to load real, active community posts!</p>
+                        <p className="text-xs text-slate-500">Configure your Google API Keys to search live Google Indexes, or manually input snippets!</p>
                         <button 
                           onClick={() => {
                             setSearchTerm('');
@@ -1133,7 +1373,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                               <div className="flex items-center gap-2 shrink-0">
                                 {conv.answered && (
                                   <span className="flex items-center text-[10px] font-bold text-emerald-400 gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                    <Icon name="check" className="w-3 h-3" /> Answered
+                                    <Icon name="check" className="w-3.5 h-3.5" /> Answered
                                   </span>
                                 )}
                                 {conv.saved && (
@@ -1153,6 +1393,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
                   </div>
                 </div>
 
+                {/* Right Copilot Detail Panel */}
                 <div className={`w-1/2 flex flex-col h-full overflow-y-auto p-6 ${darkMode ? 'bg-[#0B111E]' : 'bg-white'}`}>
                   {selectedConversation ? (
                     <div className="space-y-6">
@@ -1183,7 +1424,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
 
                       {/* Context Panel */}
                       <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Original Post</p>
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Original Post snippet</p>
                         <div className={`p-4 rounded-xl text-xs leading-relaxed ${darkMode ? 'bg-slate-900/60 border border-slate-800/80' : 'bg-slate-50 border border-slate-200'}`}>
                           {selectedConversation.excerpt}
                         </div>
@@ -1385,6 +1626,7 @@ Write a ready-to-publish draft in English. Keep it under 130 words. Focus on out
               </div>
             )}
 
+            {/* Config center */}
             {currentTab === 'alerts' && (
               <div className="flex-1 overflow-y-auto p-8 space-y-8 max-w-4xl mx-auto">
                 <div>
