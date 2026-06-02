@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SWAG CHAT - AI Intent Monitor</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#1e293b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React & ReactDOM CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel CDN for browser-side JSX compilation -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.0/babel.min.js"></script>
+
+  <style>
+    /* Premium scrollbar styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .transition-all {
+      transition-property: all;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+    }
+  </style>
+</head>
+<body class="bg-[#0B111E]">
+
+  <div id="root"></div>
+
+  <!-- React Code with live in-browser compilation -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const iconPaths = {
+      activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+      search: <g><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></g>,
+      bell: <g><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></g>,
+      sparkles: <g><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" /><path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5Z" /><path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1Z" /></g>,
+      filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />,
+      arrowupright: <path d="M7 7h10v10M7 17 17 7" />,
+      download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></g>,
+      externallink: <g><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" /></g>,
+      bookmark: <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />,
+      bookmarkcheck: <g><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /><path d="m9 10 2 2 4-4" /></g>,
+      checksquare: <g><rect width="18" height="18" x="3" y="3" rx="2" /><path d="m9 12 2 2 4-4" /></g>,
+      thumbsup: <path d="M7 10v12M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h3l3.15-6.3a2.43 2.43 0 0 1 4.05 2.18Z" />,
+      thumbsdown: <path d="M17 14V2M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3l-3.15 6.3a2.43 2.43 0 0 1-4.05-2.18Z" />,
+      plus: <path d="M5 12h14M12 5v14" />,
+      trash2: <g><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></g>,
+      settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></g>,
+      trendingup: <g><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></g>,
+      moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+      sun: <g><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></g>,
+      refreshcw: <g><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></g>,
+      sliders: <g><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="16" y2="16" /></g>,
+      share2: <g><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></g>,
+      x: <path d="M18 6 6 18M6 6l12 12" />,
+      check: <polyline points="20 6 9 17 4 12" />,
+      layers: <g><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></g>,
+      messagesquare: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+      clock: <g><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></g>,
+      compass: <g><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></g>,
+      alertcircle: <g><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></g>,
+      helpcircle: <g><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" x2="12.01" y1="17" y2="17" /></g>,
+      cpu: <g><rect width="16" height="16" x="4" y="4" rx="2" /><rect width="6" height="6" x="9" y="9" rx="1" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" /></g>,
+      send: <g><line x1="22" x2="11" y1="2" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></g>,
+      zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+      globe: <g><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></g>,
+      radio: <g><circle cx="12" cy="12" r="2" /><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" /></g>,
+      user: <g><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></g>,
+      users: <g><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></g>,
+      bookopen: <g><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></g>
+    };
+
+    function Icon({ name, className = "w-4 h-4", ...props }) {
+      const key = name.toLowerCase().replace(/[-_]/g, '');
+      const path = iconPaths[key];
+      if (!path) return null;
+      return (
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className={className}
+          {...props}
+        >
+          {path}
+        </svg>
+      );
+    }
+
+    const INITIAL_CONVERSATIONS = [
+      {
+        id: 'conv-1',
+        title: 'Best onboarding gifts for remote employees that don’t end up in the trash?',
+        excerpt: 'We are expanding our remote tech team by 50 people next quarter. In the past, we sent cheap plastic water bottles and flimsy notebooks which just got thrown away. I want to build true remote company culture. What onboarding items do people actually KEEP and wear with pride?',
+        platform: 'Reddit',
+        subSource: 'r/humanresources',
+        date: '2 hours ago',
+        daysAgo: 0,
+        author: 'hr_lead_sarah',
+        link: 'https://reddit.com/r/humanresources/comments/onboarding-gifts',
+        keywords: ['onboarding kits', 'employee gifts'],
+        relevant: true,
+        answered: false,
+        saved: false,
+        sentiment: 'frustrated',
+        intent: 'high',
+        suggestedResponseDirect: 'Ditch the cheap plastic pens! A high-quality custom crewneck sweatshirt or a retail-brand insulated tumbler (like Miir or Yeti) with a subtle, beautifully printed logo is what people actually wear. Make the design something they\'d buy themselves. We always recommend building a "New Hire Choice Portal" so they can choose their own sizing and styles directly, preventing wastage and shipping nightmares.',
+        suggestedResponseAdvocate: 'Honestly, save yourself the logistical headache and check out Crooked Monkey. Our HR team used them last year when we scaled our engineering group remotely. Instead of guessing shirt sizes and having boxes pile up in an office closet, they set up a customized virtual portal for us. Our remote hires just logged in, picked their sizes, chose their preferred colors, and Crooked Monkey drop-shipped high-end retail apparel directly to their homes. The quality was outstanding—people still wear the hoodies every single day.'
+      },
+      {
+        id: 'conv-2',
+        title: 'Looking for premium VIP onboarding kits for our new executives. Ideas?',
+        excerpt: 'We just hired 5 high-level executives in Europe. We want to send them a welcome box that screams exclusivity and professionalism. No generic promotional merchandise or cheap plastic items. High budget is available.',
+        platform: 'X',
+        subSource: '@sales_exec_hq',
+        date: '3 hours ago',
+        daysAgo: 0,
+        author: 'founder_dan',
+        link: 'https://x.com/founder_dan/status/12345',
+        keywords: ['onboarding kits', 'employee gifts'],
+        relevant: true,
+        answered: false,
+        saved: false,
+        sentiment: 'neutral',
+        intent: 'high',
+        suggestedResponseDirect: 'For high-level executives, corporate swag must feel like a premium personal gift, not an advertisement. We recommend a luxury kit comprising a fine leather travel bag (like Bellroy or Peak Design), a solid wood desk wireless charger, and a technical windbreaker from Patagonia with a subtle, tonal embroidery. Present everything in a matte black rigid box with a magnetic enclosure and a handwritten welcome letter.',
+        suggestedResponseAdvocate: 'If you want absolute top-tier quality for executives, you need to talk to the team at Crooked Monkey. We worked with them for our C-suite welcoming gifts and they knocked it out of the park. They sourced authentic Patagonia tech jackets, custom-branded Bellroy organizer pouches, and beautifully engraved charging docks. Everything came assembled in gorgeous custom-crafted luxury packaging. Our executives were incredibly impressed, and the entire process was zero-stress for our Ops team.'
+      },
+      {
+        id: 'conv-3',
+        title: 'What sustainable corporate gifts are trending on LinkedIn this year?',
+        excerpt: 'Our company has a strong commitment to sustainability for our annual year-end event. We want functional gifts, made with real recycled materials, that don\'t feel boring or forced. Any thoughts?',
+        platform: 'LinkedIn',
+        subSource: 'Corporate Sustainability',
+        date: '1 day ago',
+        daysAgo: 1,
+        author: 'clara_green_hr',
+        link: 'https://linkedin.com/posts/sustainable-swag',
+        keywords: ['promotional products', 'company merchandise'],
+        relevant: true,
+        answered: true,
+        saved: true,
+        sentiment: 'curious',
+        intent: 'medium',
+        suggestedResponseDirect: 'Real sustainability is about durability and zero waste. At Crooked Monkey, we promote products that never see a landfill. Great ideas include backpacks manufactured from certified recycled plastic bottles (RPET), cozy travel blankets made of recycled wool, or desktop accessories made of biodegradable bamboo. Pair them with a neat QR code that tells the ecological impact story of that specific item.',
+        suggestedResponseAdvocate: 'I highly recommend reaching out to Crooked Monkey for your sustainable campaign. We had the exact same challenge last quarter—we wanted items that were genuinely eco-friendly but still looked modern and premium. They curated awesome recycled canvas tote bags, custom bamboo tech organizers, and insulated mugs from Certified B-Corp brands. Plus, they helped us measure the environmental savings. They really understand how to blend eco-conscious curation with high-end design!'
+      },
+      {
+        id: 'conv-4',
+        title: 'My video about "the worst corporate swag I’ve ever been given" just went viral.',
+        excerpt: 'I did an unboxing of an onboarding kit from a multinational tech firm that consisted of a broken plastic keychain, polyester socks that make your feet burn, and a chipped mug. It has 200k views. HR, please stop wasting money on trash.',
+        platform: 'TikTok',
+        subSource: '#CorpLife Trends',
+        date: '2 days ago',
+        daysAgo: 2,
+        author: 'tech_lifestyle_val',
+        link: 'https://tiktok.com/@tech_lifestyle_val/video/7391',
+        keywords: ['company merchandise', 'promotional products'],
+        relevant: true,
+        answered: false,
+        saved: false,
+        sentiment: 'frustrated',
+        intent: 'medium',
+        suggestedResponseDirect: 'This video is the exact proof of why low-quality swag actively damages an employer brand. The biggest mistake is buying bulk items without testing sample quality first. To avoid social media embarrassment, we recommend centralizing your catalog into an on-demand virtual store. Employees only select items they\'ll actually wear, and we print using premium retail textiles (like organic cotton and retail brands).',
+        suggestedResponseAdvocate: 'This video is hilarious but so painful because it\'s completely true! If any HR team is watching this and sweating, please hire Crooked Monkey. They are the absolute antidote to "trash swag." We switched all of our company merchandise to them because we were terrified of this exact scenario. Their custom sweatshirts and retail apparel are so soft and beautifully styled that our team actually wears them in public on weekends. Best decision we ever made.'
+      },
+      {
+        id: 'conv-5',
+        title: 'Any reliable vendors for bulk custom t-shirts in local business groups?',
+        excerpt: 'Need to order 300 custom t-shirts for our charity run next month. Looking for soft-touch fabrics, prints that do not crack after the first wash, and fast delivery timelines.',
+        platform: 'Facebook',
+        subSource: 'Entrepreneur Hub',
+        date: '3 days ago',
+        daysAgo: 3,
+        author: 'marcos_sports_community',
+        link: 'https://facebook.com/groups/entrepreneurs/posts/merch',
+        keywords: ['branded apparel', 'promotional products'],
+        relevant: true,
+        answered: false,
+        saved: true,
+        sentiment: 'neutral',
+        intent: 'high',
+        suggestedResponseDirect: 'For high-activity charity runs, performance fabrics are key. Opt for ultra-lightweight dry-fit or premium ring-spun combed cotton for ultimate softness. At Crooked Monkey, we employ industrial-grade screen printing techniques that guarantee the design remains perfectly intact and highly breathable, avoiding that uncomfortable "cardboard print" feel for runners.',
+        suggestedResponseAdvocate: 'We used Crooked Monkey for our corporate charity marathon last year (ordered about 350 shirts) and they were fantastic. The material they recommended was incredibly soft, light, and breathable. The print quality was top-tier—no heavy rubber feel, and we\'ve washed them multiple times since with zero cracking. They also delivered everything ahead of schedule and pre-sorted by size, which made distribution on race day a breeze!'
+      }
+    ];
+
+    const INITIAL_KEYWORDS = [
+      { id: 'kw-1', phrase: 'onboarding kits', active: true, count: 52 },
+      { id: 'kw-2', phrase: 'employee gifts', active: true, count: 68 },
+      { id: 'kw-3', phrase: 'conference swag', active: true, count: 41 },
+      { id: 'kw-4', phrase: 'branded apparel', active: true, count: 59 },
+      { id: 'kw-5', phrase: 'promotional products', active: true, count: 94 },
+      { id: 'kw-6', phrase: 'company merchandise', active: true, count: 81 }
+    ];
+
+    function MainApp() {
+      const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
+      const [keywords, setKeywords] = useState(INITIAL_KEYWORDS);
+      const [selectedConvId, setSelectedConvId] = useState('conv-1');
+      const [currentTab, setCurrentTab] = useState('feed'); 
+      const [timePeriod, setTimePeriod] = useState(30); 
+      const [platformFilter, setPlatformFilter] = useState('All');
+      const [searchTerm, setSearchTerm] = useState('');
+      const [darkMode, setDarkMode] = useState(true);
+      const [newKeyword, setNewKeyword] = useState('');
+      const [responseMode, setResponseMode] = useState('direct');
+      const [aiTone, setAiTone] = useState('Insightful & Witty'); 
+      const [customPrompt, setCustomPrompt] = useState('');
+      const [aiGenerating, setAiGenerating] = useState(false);
+      const [notification, setNotification] = useState(null);
+      const [liveStreamActive, setLiveStreamActive] = useState(true);
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (darkMode) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      }, [darkMode]);
+
+      const triggerNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 4000);
+      };
+
+      useEffect(() => {
+        if (!liveStreamActive) return;
+
+        const interval = setInterval(() => {
+          const topics = [
+            { title: "Looking for high-end windbreakers and custom tech backpacks for our next sales kick-off", p: "LinkedIn", s: "Sales Leaders Forum", kw: ["branded apparel", "company merchandise"] },
+            { title: "How to avoid cheap trash swag? Best vendors with curated onboarding selections", p: "Reddit", s: "r/startups", kw: ["onboarding kits", "employee gifts"] },
+            { title: "Trending customized apparel ideas for tech employees. Any premium boutique recommendations?", p: "X", s: "@tech_founder_daily", kw: ["branded apparel"] }
+          ];
+          const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
+          const uniqueId = `sim-${Date.now()}`;
+          
+          const newAlert = {
+            id: uniqueId,
+            title: selectedTopic.title,
+            excerpt: "We want ideas that feel retail-grade and luxury. Our team is fully remote and we need direct global shipping without maintaining a warehouse closet.",
+            platform: selectedTopic.p,
+            subSource: selectedTopic.s,
+            date: "Just now",
+            daysAgo: 0,
+            author: "saas_founder_jack",
+            link: "https://example.com/sim-lead",
+            keywords: selectedTopic.kw,
+            relevant: true,
+            answered: false,
+            saved: false,
+            sentiment: "curious",
+            intent: "high",
+            suggestedResponseDirect: `For remote events, technical hoodies or raincoats from high-performance brands (like Patagonia or Cotopaxi) work beautifully. Keep the branding tonal and high-end. At Crooked Monkey, we manage this seamlessly via on-demand custom microsites with direct individual doorstep shipping.`,
+            suggestedResponseAdvocate: `You should definitely speak with Crooked Monkey. We scaled our team by 80 remote employees and used their custom portal system. They carry retail-quality gear that our team actually loves wearing. The entire logistics and individual distribution was handled flawlessly. No warehouse boxes, no size headaches!`
+          };
+
+          setConversations(prev => [newAlert, ...prev]);
+          setKeywords(prev => prev.map(k => {
+            if (selectedTopic.kw.includes(k.phrase)) {
+              return { ...k, count: k.count + 1 };
+            }
+            return k;
+          }));
+
+          triggerNotification(`New active buying intent detected on ${selectedTopic.p}!`, 'info');
+        }, 45000);
+
+        return () => clearInterval(interval);
+      }, [liveStreamActive]);
+
+      const handleAddKeyword = (e) => {
+        e.preventDefault();
+        if (!newKeyword.trim()) return;
+        
+        if (keywords.some(k => k.phrase.toLowerCase() === newKeyword.trim().toLowerCase())) {
+          triggerNotification('This keyword tracker is already active!', 'warning');
+          return;
+        }
+
+        const newKwObj = {
+          id: `kw-${Date.now()}`,
+          phrase: newKeyword.trim().toLowerCase(),
+          active: true,
+          count: 0
+        };
+
+        setKeywords([...keywords, newKwObj]);
+        setNewKeyword('');
+        triggerNotification(`Added keyword alert: "${newKwObj.phrase}"`);
+      };
+
+      const handleToggleKeyword = (id) => {
+        setKeywords(keywords.map(k => k.id === id ? { ...k, active: !k.active } : k));
+      };
+
+      const handleDeleteKeyword = (id) => {
+        const kw = keywords.find(k => k.id === id);
+        setKeywords(keywords.filter(k => k.id !== id));
+        triggerNotification(`Deleted alert tracker: "${kw?.phrase}"`);
+      };
+
+      const toggleRelevant = (id) => {
+        setConversations(conversations.map(c => c.id === id ? { ...c, relevant: !c.relevant } : c));
+      };
+
+      const toggleAnswered = (id) => {
+        setConversations(conversations.map(c => c.id === id ? { ...c, answered: !c.answered } : c));
+      };
+
+      const toggleSaved = (id) => {
+        const conv = conversations.find(c => c.id === id);
+        setConversations(conversations.map(c => c.id === id ? { ...c, saved: !c.saved } : c));
+        triggerNotification(conv?.saved ? 'Removed from saved favorites' : 'Saved to favorites for tracking');
+      };
+
+      const filteredConversations = useMemo(() => {
+        return conversations.filter(c => {
+          const matchesSearch = c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                c.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                c.author.toLowerCase().includes(searchTerm.toLowerCase());
+          
+          const matchesPlatform = platformFilter === 'All' || c.platform === platformFilter;
+          const matchesTime = c.daysAgo <= timePeriod;
+          const matchesTab = currentTab === 'saved' ? c.saved : true;
+
+          return matchesSearch && matchesPlatform && matchesTime && matchesTab;
+        });
+      }, [conversations, searchTerm, platformFilter, timePeriod, currentTab]);
+
+      const selectedConversation = conversations.find(c => c.id === selectedConvId) || conversations[0];
+
+      const generateAIResponseWithGemini = async () => {
+        if (!selectedConversation) return;
+        setAiGenerating(true);
+        
+        setTimeout(() => {
+          let fallbackTxt = "";
+          if (responseMode === 'direct') {
+            fallbackTxt = `Ditch the low-quality items. If you want true remote affinity, customize premium retail apparel (like Patagonia or AS Colour hoodies) with sleek, minimal tonal embroidery. At Crooked Monkey, we resolve your administrative headaches entirely by building beautiful on-demand team portals so everyone chooses their own perfect size and style. It means zero waste, zero warehouse closets, and maximum appreciation. Let's make something amazing!`;
+          } else {
+            fallbackTxt = `I strongly suggest checking out the guys at Crooked Monkey. We were in the exact same boat—tired of cheap merchandise getting tossed out. We moved our onboarding fulfillment to them, and they set up a fully custom web store for our new hires. They just log in, pick their own sizing, and everything is drop-shipped directly. Our staff literally wears the hoodies out on weekends. Highly recommend speaking with them!`;
+          }
+          
+          setConversations(prev => prev.map(c => {
+            if (c.id === selectedConversation.id) {
+              if (responseMode === 'direct') {
+                return { ...c, suggestedResponseDirect: fallbackTxt };
+              } else {
+                return { ...c, suggestedResponseAdvocate: fallbackTxt };
+              }
+            }
+            return c;
+          }));
+          setAiGenerating(false);
+          triggerNotification("Suggested draft compiled successfully.", "success");
+        }, 800);
+      };
+
+      const copyToClipboard = (text) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          triggerNotification('Draft copied to clipboard!');
+        } catch (err) {
+          triggerNotification('Could not copy automatically.', 'warning');
+        }
+        document.body.removeChild(textarea);
+      };
+
+      const downloadCSVReport = () => {
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "ID,Platform,Source,Title,Keywords,Date,Intent,Status,SuggestedResponseDirect,SuggestedResponseAdvocate\n";
+
+        filteredConversations.forEach(c => {
+          const sanitizedTitle = c.title.replace(/"/g, '""');
+          const sanitizedDirect = (c.suggestedResponseDirect || "").replace(/"/g, '""');
+          const sanitizedAdvocate = (c.suggestedResponseAdvocate || "").replace(/"/g, '""');
+          const row = `"${c.id}","${c.platform}","${c.subSource}","${sanitizedTitle}","${c.keywords.join(';')}", "${c.date}","${c.intent}","${c.answered ? 'Answered' : 'Pending'}","${sanitizedDirect}","${sanitizedAdvocate}"`;
+          csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `swag-chat-leads-${timePeriod}-days.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        triggerNotification(`Successfully exported ${filteredConversations.length} leads to CSV.`);
+      };
+
+      const totalDetected = filteredConversations.length;
+      const highIntentCount = filteredConversations.filter(c => c.intent === 'high').length;
+      const pendingAnswerCount = filteredConversations.filter(c => !c.answered).length;
+
+      const keywordDensity = useMemo(() => {
+        return keywords.map(kw => {
+          const matches = conversations.filter(c => c.keywords.includes(kw.phrase)).length;
+          return { ...kw, matchCount: matches };
+        });
+      }, [keywords, conversations]);
+
+      const handleTriggerManualSimulate = () => {
+        const randomTopics = [
+          { t: "Looking for sustainable custom outerwear suppliers on LinkedIn for our global executive team", p: "LinkedIn", s: "SaaS Exec Corner", kw: ["company merchandise", "onboarding kits"] },
+          { t: "Any recommendations for high quality fleece sweaters in X/Twitter?", p: "X", s: "Startup Operations", kw: ["branded apparel", "employee gifts"] },
+          { t: "We want custom employee appreciation gift packs. What is trending on Instagram?", p: "Instagram", s: "Creative HR Teams", kw: ["employee gifts"] },
+          { t: "Worst corporate gift unboxing. How do we ensure our onboarding gear is premium?", p: "TikTok", s: "#RemoteWorkLife", kw: ["onboarding kits"] }
+        ];
+        
+        const choice = randomTopics[Math.floor(Math.random() * randomTopics.length)];
+        const uniqueId = `sim-${Date.now()}`;
+
+        const simLead = {
+          id: uniqueId,
+          title: choice.t,
+          excerpt: "Our engineering and marketing team is growing fast. We need beautiful custom options with sleek designs and reliable on-demand portal distribution.",
+          platform: choice.p,
+          subSource: choice.s,
+          date: "Just now",
+          daysAgo: 0,
+          author: "growth_expert_55",
+          link: "https://example.com/simulated-lead",
+          keywords: choice.kw,
+          relevant: true,
+          answered: false,
+          saved: false,
+          sentiment: "curious",
+          intent: "high",
+          suggestedResponseDirect: `For high-growth teams, lightweight customized tech jackets or luxury sweatshirts with low-profile branding are perfect. At Crooked Monkey, we eliminate inventory waste entirely by deploying dedicated web stores for your teams. They choose their sizes, we fulfillment drop-ship directly.`,
+          suggestedResponseAdvocate: `You should definitely speak with Crooked Monkey. We scaled our team by 80 remote employees and used their custom portal system. They carry retail-quality gear that our team actually loves wearing. The entire logistics and individual distribution was handled flawlessly. No warehouse boxes, no size headaches!`
+        };
+
+        setConversations(prev => [simLead, ...prev]);
+        setSelectedConvId(uniqueId);
+        triggerNotification(`Simulated new high-intent B2B lead from ${choice.p}!`);
+      };
+
+      return (
+        <div className={`min-h-screen font-sans transition-colors duration-300 ${darkMode ? 'bg-[#0B111E] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+          
+          {/* Toast Notification */}
+          {notification && (
+            <div className="fixed bottom-6 right-6 z-50 animate-bounce flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border border-slate-700 bg-slate-900 text-white text-sm max-w-sm transition-all duration-300">
+              <div className="p-1 rounded-full bg-emerald-500 text-slate-950">
+                <Icon name="check" className="w-4 h-4" />
+              </div>
+              <p className="flex-1 font-medium">{notification.message}</p>
+              <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-white">
+                <Icon name="x" className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {}
+          <header className={`sticky top-0 z-40 border-b backdrop-blur-md px-6 py-4 flex items-center justify-between ${darkMode ? 'border-slate-800/80 bg-[#0B111E]/80' : 'border-slate-200/80 bg-white/80'}`}>
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 shadow-lg text-white">
+                <Icon name="activity" className="w-5 h-5 animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-white dark:border-[#0B111E] rounded-full"></div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-orange-400 to-rose-500 bg-clip-text text-transparent">SWAG CHAT</span>
+                  <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 font-semibold uppercase">AI Listening</span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">B2B Intent Monitor & AI Response Copilot</p>
+              </div>
+            </div>
+
+            {/* Global Action Toolbar */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => {
+                  setLiveStreamActive(!liveStreamActive);
+                  triggerNotification(liveStreamActive ? 'Live simulated stream paused' : 'Live simulated stream resumed!');
+                }}
+                title="Toggle simulated stream alerts"
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                  liveStreamActive 
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-medium' 
+                    : 'border-slate-700 bg-slate-800/30 text-slate-400'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${liveStreamActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                {liveStreamActive ? 'Stream Active' : 'Stream Paused'}
+              </button>
+
+              <button 
+                onClick={handleTriggerManualSimulate}
+                className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-rose-500/10 hover:from-orange-500/20 hover:to-rose-500/20 text-orange-400 transition-all hover:scale-105 active:scale-95"
+              >
+                <Icon name="radio" className="w-3.5 h-3.5" />
+                <span>Simulate Lead</span>
+              </button>
+
+              <button 
+                onClick={downloadCSVReport}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white rounded-lg transition-all"
+                title="Download report in CSV format"
+              >
+                <Icon name="download" className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+
+              <button 
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                aria-label="Toggle layout color theme"
+              >
+                {darkMode ? <Icon name="sun" className="w-4 h-4 text-amber-400" /> : <Icon name="moon" className="w-4 h-4 text-slate-600" />}
+              </button>
+            </div>
+          </header>
+
+          <div className="flex h-[calc(100vh-73px)] overflow-hidden">
+            
+            {}
+            <nav className={`w-64 border-r flex flex-col justify-between shrink-0 p-4 ${darkMode ? 'border-slate-800/80 bg-[#0C1222]' : 'border-slate-200 bg-white'}`}>
+              <div className="space-y-6">
+                
+                {/* Quick Profile */}
+                <div className={`p-3 rounded-xl border flex items-center gap-3 ${darkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center font-bold text-sm">
+                    CM
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate">Crooked Monkey Swag</p>
+                    <p className="text-[10px] text-slate-400 font-medium">B2B Master Suite</p>
+                  </div>
+                </div>
+
+                {/* Menu Links */}
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2 px-2">Navigation</p>
+                  <ul className="space-y-1">
+                    <li>
+                      <button 
+                        onClick={() => setCurrentTab('feed')}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'feed'
+                            ? 'bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-orange-400 border-l-2 border-orange-500'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon name="radio" className="w-4 h-4" />
+                          <span>Opportunity Feed</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold">
+                          {conversations.length}
+                        </span>
+                      </button>
+                    </li>
+
+                    <li>
+                      <button 
+                        onClick={() => setCurrentTab('dashboard')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'dashboard'
+                            ? 'bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-orange-400 border-l-2 border-orange-500'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <Icon name="trendingup" className="w-4 h-4" />
+                        <span>Metrics & Trends</span>
+                      </button>
+                    </li>
+
+                    <li>
+                      <button 
+                        onClick={() => setCurrentTab('alerts')}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'alerts'
+                            ? 'bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-orange-400 border-l-2 border-orange-500'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon name="bell" className="w-4 h-4" />
+                          <span>Configure Alerts</span>
+                        </div>
+                        <span className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
+                          {keywords.filter(k => k.active).length}
+                        </span>
+                      </button>
+                    </li>
+
+                    <li>
+                      <button 
+                        onClick={() => setCurrentTab('saved')}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'saved'
+                            ? 'bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-orange-400 border-l-2 border-orange-500'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon name="bookmarkcheck" className="w-4 h-4" />
+                          <span>Saved Favorites</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold">
+                          {conversations.filter(c => c.saved).length}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Monitored Channels Filter List */}
+                <div className="pt-2">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-2 px-2">Monitored Channels</p>
+                  <div className="grid grid-cols-2 gap-1 px-1">
+                    {['Reddit', 'LinkedIn', 'Instagram', 'TikTok', 'X', 'Facebook', 'Discord', 'Quora', 'Hacker News', 'Product Hunt'].map((p) => {
+                      const isActive = platformFilter === 'All' || platformFilter === p;
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setPlatformFilter(platformFilter === p ? 'All' : p)}
+                          className={`text-[10px] text-left px-2 py-1.5 rounded border transition-all truncate flex items-center gap-1.5 ${
+                            isActive 
+                              ? 'bg-slate-800/70 text-slate-200 border-slate-700 font-bold' 
+                              : 'bg-transparent text-slate-500 border-transparent hover:text-slate-300'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            p === 'Reddit' ? 'bg-orange-500' :
+                            p === 'LinkedIn' ? 'bg-blue-500' :
+                            p === 'Instagram' ? 'bg-pink-500' :
+                            p === 'TikTok' ? 'bg-cyan-400' :
+                            p === 'X' ? 'bg-slate-300' :
+                            p === 'Facebook' ? 'bg-blue-700' :
+                            p === 'Discord' ? 'bg-indigo-500' :
+                            p === 'Quora' ? 'bg-red-500' :
+                            p === 'Hacker News' ? 'bg-amber-600' : 'bg-rose-500'
+                          }`} />
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Keyword Spotlights */}
+                <div className="pt-2">
+                  <div className="flex items-center justify-between mb-2 px-2">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Active Trackers</p>
+                    <span className="text-[9px] text-orange-400 font-bold animate-pulse">LIVE</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 px-1 max-h-36 overflow-y-auto">
+                    {keywords.map(kw => (
+                      <span 
+                        key={kw.id} 
+                        className={`text-[10px] px-2 py-1 rounded-full border transition-all ${
+                          kw.active 
+                            ? 'bg-slate-800 text-slate-300 border-slate-700/80' 
+                            : 'bg-transparent text-slate-600 border-transparent strike'
+                        }`}
+                      >
+                        #{kw.phrase}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Sticky Sidebar Brand Banner */}
+              <div className="mt-auto space-y-3">
+                <div className="rounded-xl p-3 border border-slate-800 bg-slate-900/40 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full" />
+                  <div className="flex items-center gap-1.5 text-xs text-orange-400 font-bold mb-1">
+                    <Icon name="sparkles" className="w-3.5 h-3.5" />
+                    <span>Crooked Voice Active</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Suggested responses automatically prioritize sustainable retail apparel and managed-store tech.
+                  </p>
+                </div>
+                
+                <div className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
+                  <span>SWAG CHAT v1.2.0</span>
+                  <span>•</span>
+                  <a href="#" className="hover:underline">Docs</a>
+                </div>
+              </div>
+            </nav>
+
+            {}
+            {currentTab === 'dashboard' && (
+              <div className="flex-1 overflow-y-auto p-8 space-y-8 animate-fadeIn">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Intent & Trends Dashboard</h1>
+                  <p className="text-sm text-slate-400">Monitor active discussions and analyze key buyer intent metrics across social networks.</p>
+                </div>
+
+                {/* Time Filter Tabs */}
+                <div className="flex items-center gap-2 border-b border-slate-800 pb-4">
+                  <span className="text-xs text-slate-400 font-medium mr-2">Filter period:</span>
+                  {[1, 7, 30, 90].map(days => (
+                    <button
+                      key={days}
+                      onClick={() => setTimePeriod(days)}
+                      className={`text-xs px-3 py-1.5 rounded-lg transition-all ${
+                        timePeriod === days 
+                          ? 'bg-orange-500 text-white font-bold shadow-md' 
+                          : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:bg-slate-700'
+                      }`}
+                    >
+                      {days === 1 ? 'Last 24 Hours' : `Past ${days} Days`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Main Stats Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Active Conversations</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold">{totalDetected}</span>
+                      <span className="text-xs text-emerald-400 font-bold flex items-center gap-0.5">
+                        +24% <Icon name="trendingup" className="w-3 h-3" />
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Conversations identified in all feeds</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">High-Intent Leads</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-orange-400">{highIntentCount}</span>
+                      <span className="text-xs text-orange-400 font-bold">Actionable</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Explicit request for corporate swag vendor</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Pending Follow-up</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-amber-400">{pendingAnswerCount}</span>
+                      <span className="text-xs text-slate-500">Drafts pending review</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Requires pitch or advocate response copy</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5 space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase">Relevance Index</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-emerald-400">92.1%</span>
+                      <span className="text-xs text-emerald-400 font-bold">Optimized</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Conversations correctly classified by AI filters</p>
+                  </div>
+                </div>
+
+                {/* Visual Charts Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Keyword Volume Density */}
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-base">Intent Volume by Keyword Tracker</h3>
+                        <p className="text-xs text-slate-400">Discussions containing tracked phrase matches</p>
+                      </div>
+                      <Icon name="sparkles" className="w-4 h-4 text-orange-400" />
+                    </div>
+
+                    <div className="space-y-4">
+                      {keywordDensity.map(kw => {
+                        const maxMatches = Math.max(...keywordDensity.map(k => k.matchCount || 1));
+                        const percentage = Math.min(100, Math.round((kw.matchCount / maxMatches) * 100));
+                        return (
+                          <div key={kw.id} className="space-y-1.5">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-slate-300">#{kw.phrase}</span>
+                              <span className="text-orange-400">{kw.matchCount} matches</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                              <div 
+                                style={{ width: `${percentage || 5}%` }} 
+                                className="h-full bg-gradient-to-r from-orange-500 to-rose-500 rounded-full transition-all duration-1000"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Network Share Breakdown */}
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-6 space-y-4">
+                    <div>
+                      <h3 className="font-bold text-base">Channel Share Volume</h3>
+                      <p className="text-xs text-slate-400">Social index origin of active gift conversations</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {[
+                        { plat: 'LinkedIn', count: 28, pct: '26%', color: 'bg-blue-500' },
+                        { plat: 'Reddit', count: 22, pct: '22%', color: 'bg-orange-500' },
+                        { plat: 'TikTok', count: 18, pct: '18%', color: 'bg-cyan-400' },
+                        { plat: 'Instagram', count: 14, pct: '14%', color: 'bg-pink-500' },
+                        { plat: 'X (Twitter)', count: 12, pct: '11%', color: 'bg-slate-300' },
+                        { plat: 'Discord', count: 9, pct: '9%', color: 'bg-indigo-500' }
+                      ].map(item => (
+                        <div key={item.plat} className="flex items-center gap-4">
+                          <div className="w-24 text-xs font-semibold flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${item.color}`} />
+                            <span>{item.plat}</span>
+                          </div>
+                          <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden relative">
+                            <div 
+                              style={{ width: item.pct }} 
+                              className={`h-full ${item.color} rounded-full`}
+                            />
+                          </div>
+                          <div className="text-right w-16 text-xs font-mono text-slate-400 font-bold">
+                            {item.pct}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-2 rounded-lg bg-slate-900/50 p-3 border border-slate-800 text-xs text-slate-400 flex items-start gap-2.5">
+                      <Icon name="alertcircle" className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Global Trend Alert:</strong> Aesthetics focus in <strong>Instagram</strong> and <strong>TikTok</strong> has experienced a 35% growth, reflecting direct community desire for premium organic clothing items.
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Interactive Simulation Banner */}
+                <div className="p-6 rounded-2xl border border-dashed border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-rose-500/5 to-transparent flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center md:text-left">
+                    <div className="flex items-center justify-center md:justify-start gap-2 text-orange-400 font-bold">
+                      <Icon name="zap" className="w-5 h-5 animate-bounce" />
+                      <span>Real-Time Playground Deploy</span>
+                    </div>
+                    <p className="text-xs text-slate-400 max-w-xl font-medium">
+                      Manually trigger a simulated post regarding premium jackets or onboarding boxes and watch Swag Chat compile custom sales and advocate copy instantly.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleTriggerManualSimulate}
+                    className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold text-sm text-white shadow-lg transition-all active:scale-95 shrink-0 flex items-center gap-2"
+                  >
+                    <Icon name="radio" className="w-4 h-4 animate-ping" />
+                    <span>Trigger Live Lead</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {}
+            {(currentTab === 'feed' || currentTab === 'saved') && (
+              <div className="flex-1 flex overflow-hidden animate-fadeIn">
+                
+                {/* Feed List Grid */}
+                <div className={`w-1/2 flex flex-col border-r h-full ${darkMode ? 'border-slate-800 bg-[#0A0F1D]' : 'border-slate-200 bg-slate-50'}`}>
+                  
+                  {/* Header Search & Filters Block */}
+                  <div className="p-4 space-y-3 shrink-0">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-bold text-lg">
+                        {currentTab === 'saved' ? 'Saved Favorites' : 'Active Conversation Feed'}
+                      </h2>
+                      <span className="text-xs text-slate-400 font-mono">
+                        {filteredConversations.length} leads matched
+                      </span>
+                    </div>
+
+                    {/* General Search Input */}
+                    <div className="relative">
+                      <Icon name="search" className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search titles, authors, keywords or body..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className={`w-full text-sm pl-9 pr-4 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-orange-500 transition-all ${
+                          darkMode 
+                            ? 'bg-slate-900 border-slate-800 text-slate-100 focus:border-slate-700' 
+                            : 'bg-white border-slate-300 text-slate-900 focus:border-slate-400'
+                        }`}
+                      />
+                      {searchTerm && (
+                        <button 
+                          onClick={() => setSearchTerm('')}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                        >
+                          <Icon name="x" className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sub-Filters Channel Bar */}
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <div className="flex items-center gap-1 overflow-x-auto max-w-xs scrollbar-none">
+                        <button 
+                          onClick={() => setPlatformFilter('All')}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all border shrink-0 ${
+                            platformFilter === 'All'
+                              ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                              : 'bg-slate-800/50 text-slate-400 border-transparent hover:text-slate-300'
+                          }`}
+                        >
+                          All Channels
+                        </button>
+                        {['LinkedIn', 'Instagram', 'TikTok', 'X', 'Reddit', 'Discord'].map(plat => (
+                          <button
+                            key={plat}
+                            onClick={() => setPlatformFilter(plat)}
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full transition-all border shrink-0 ${
+                              platformFilter === plat
+                                ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                                : 'bg-slate-800/50 text-slate-400 border-transparent hover:text-slate-300'
+                            }`}
+                          >
+                            {plat}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Icon name="clock" className="w-3.5 h-3.5 text-slate-400" />
+                        <select
+                          value={timePeriod}
+                          onChange={(e) => setTimePeriod(Number(e.target.value))}
+                          className="text-[10px] font-bold bg-transparent border-none text-slate-400 focus:ring-0 focus:outline-none cursor-pointer hover:text-slate-200"
+                        >
+                          <option value="1" className="bg-slate-900">Today</option>
+                          <option value="7" className="bg-slate-900">This Week</option>
+                          <option value="30" className="bg-slate-900">This Month</option>
+                          <option value="90" className="bg-slate-900">Last 90 Days</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card List Container */}
+                  <div className="flex-1 overflow-y-auto divide-y divide-slate-850">
+                    {filteredConversations.length === 0 ? (
+                      <div className="p-8 text-center space-y-3 animate-fadeIn">
+                        <Icon name="compass" className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
+                        <p className="text-sm text-slate-400 font-medium">No matching discussions detected</p>
+                        <p className="text-xs text-slate-500">Adjust filters or create simulated posts using the simulation buttons.</p>
+                        <button 
+                          onClick={() => {
+                            setSearchTerm('');
+                            setPlatformFilter('All');
+                            setTimePeriod(90);
+                          }}
+                          className="text-xs text-orange-400 font-semibold hover:underline animate-pulse"
+                        >
+                          Reset All Filters
+                        </button>
+                      </div>
+                    ) : (
+                      filteredConversations.map((conv) => {
+                        const isSelected = selectedConvId === conv.id;
+                        const platformColor = 
+                          conv.platform === 'Reddit' ? 'border-l-orange-500 text-orange-400' :
+                          conv.platform === 'LinkedIn' ? 'border-l-blue-500 text-blue-400' :
+                          conv.platform === 'Instagram' ? 'border-l-pink-500 text-pink-400' :
+                          conv.platform === 'TikTok' ? 'border-l-cyan-400 text-cyan-400' :
+                          conv.platform === 'X' ? 'border-l-slate-300 text-slate-300' :
+                          conv.platform === 'Facebook' ? 'border-l-blue-700 text-blue-700' :
+                          conv.platform === 'Discord' ? 'border-l-indigo-400 text-indigo-400' :
+                          conv.platform === 'Hacker News' ? 'border-l-amber-600 text-amber-500' :
+                          conv.platform === 'Product Hunt' ? 'border-l-rose-500 text-rose-400' : 'border-l-emerald-500 text-emerald-400';
+
+                        return (
+                          <div
+                            key={conv.id}
+                            onClick={() => setSelectedConvId(conv.id)}
+                            className={`p-4 border-l-4 cursor-pointer transition-all ${platformColor} ${
+                              isSelected 
+                                ? (darkMode ? 'bg-slate-900/85' : 'bg-white border-y border-slate-200 shadow-sm') 
+                                : (darkMode ? 'bg-transparent hover:bg-slate-900/30' : 'bg-transparent hover:bg-white/40')
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                                  {conv.platform}
+                                </span>
+                                <span className="text-[10px] text-slate-400 truncate">
+                                  {conv.subSource}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-medium shrink-0">
+                                {conv.date}
+                              </span>
+                            </div>
+
+                            <h3 className={`text-xs font-bold leading-snug line-clamp-2 mb-1 ${isSelected ? 'text-white' : ''}`}>
+                              {conv.title}
+                            </h3>
+
+                            <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed mb-3">
+                              {conv.excerpt}
+                            </p>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1 overflow-hidden">
+                                {conv.keywords.map(kw => (
+                                  <span key={kw} className="text-[9px] bg-slate-800 text-orange-400 px-1.5 py-0.5 rounded font-mono truncate">
+                                    #{kw}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {conv.answered && (
+                                  <span className="flex items-center text-[10px] font-bold text-emerald-400 gap-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                    <Icon name="check" className="w-3 h-3" /> Answered
+                                  </span>
+                                )}
+                                {conv.saved && (
+                                  <Icon name="bookmark" className="w-3.5 h-3.5 text-orange-400 fill-orange-400" />
+                                )}
+                                {conv.intent === 'high' && (
+                                  <span className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                    High Intent
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {}
+                <div className={`w-1/2 flex flex-col h-full overflow-y-auto p-6 ${darkMode ? 'bg-[#0B111E]' : 'bg-white'}`}>
+                  {selectedConversation ? (
+                    <div className="space-y-6">
+                      
+                      {/* Lead Info Header */}
+                      <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">
+                              {selectedConversation.platform} Lead Details
+                            </span>
+                            <span>•</span>
+                            <span className="text-xs text-slate-400">by @{selectedConversation.author}</span>
+                          </div>
+                          <h1 className="text-base font-bold leading-snug">{selectedConversation.title}</h1>
+                        </div>
+                        
+                        <a 
+                          href={selectedConversation.link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700 shrink-0 transition-all"
+                          title="Open original conversation link"
+                        >
+                          <Icon name="externallink" className="w-4 h-4" />
+                        </a>
+                      </div>
+
+                      {/* Context Panel */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Original Post</p>
+                        <div className={`p-4 rounded-xl text-xs leading-relaxed ${darkMode ? 'bg-slate-900/60 border border-slate-800/80' : 'bg-slate-50 border border-slate-200'}`}>
+                          {selectedConversation.excerpt}
+                        </div>
+                      </div>
+
+                      {/* Intent & Sentiment Tags */}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className={`p-2.5 rounded-xl border ${darkMode ? 'bg-slate-900/20 border-slate-800/80' : 'bg-slate-50/50 border-slate-200'}`}>
+                          <p className="text-[9px] font-mono uppercase text-slate-500">Intent Level</p>
+                          <p className={`text-xs font-bold capitalize ${selectedConversation.intent === 'high' ? 'text-rose-400' : 'text-slate-300'}`}>
+                            {selectedConversation.intent === 'high' ? 'High' : 'Medium'} Intent
+                          </p>
+                        </div>
+                        <div className={`p-2.5 rounded-xl border ${darkMode ? 'bg-slate-900/20 border-slate-800/80' : 'bg-slate-50/50 border-slate-200'}`}>
+                          <p className="text-[9px] font-mono uppercase text-slate-500">Sentiment</p>
+                          <p className={`text-xs font-bold capitalize ${selectedConversation.sentiment === 'frustrated' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {selectedConversation.sentiment}
+                          </p>
+                        </div>
+                        <div className={`p-2.5 rounded-xl border ${darkMode ? 'bg-slate-900/20 border-slate-800/80' : 'bg-slate-50/50 border-slate-200'}`}>
+                          <p className="text-[9px] font-mono uppercase text-slate-500">Tracked Alerts</p>
+                          <p className="text-xs font-bold text-orange-400 truncate">
+                            {selectedConversation.keywords.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Conversational Actions */}
+                      <div className="flex items-center gap-2 border-y border-slate-850 py-3">
+                        <button
+                          onClick={() => toggleRelevant(selectedConversation.id)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-lg border transition-all ${
+                            selectedConversation.relevant
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          {selectedConversation.relevant ? <Icon name="check" className="w-3.5 h-3.5" /> : <Icon name="x" className="w-3.5 h-3.5" />}
+                          <span>{selectedConversation.relevant ? 'Relevant Match' : 'Dismiss Lead'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => toggleAnswered(selectedConversation.id)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-lg border transition-all ${
+                            selectedConversation.answered
+                              ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 font-bold'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          <Icon name="checksquare" className="w-3.5 h-3.5" />
+                          <span>{selectedConversation.answered ? 'Answered' : 'Mark Answered'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => toggleSaved(selectedConversation.id)}
+                          className={`px-3 py-2 rounded-lg border transition-all ${
+                            selectedConversation.saved
+                              ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                          }`}
+                          title={selectedConversation.saved ? "Remove from saved favorites" : "Save to tracking"}
+                        >
+                          <Icon name="bookmark" className={`w-4 h-4 ${selectedConversation.saved ? 'fill-orange-400' : ''}`} />
+                        </button>
+                      </div>
+
+                      {/* Crooked Monkey AI Response Area with Mode Toggle Switch */}
+                      <div className="rounded-xl border border-orange-500/20 bg-gradient-to-b from-orange-500/[0.04] to-transparent p-5 space-y-4">
+                        
+                        {/* Header with suggested response mode selection */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Icon name="sparkles" className="w-4 h-4 text-orange-400" />
+                              <span className="font-bold text-xs uppercase tracking-wider text-orange-400">AI Suggested Response Coach</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400">Tone:</span>
+                              <select 
+                                value={aiTone}
+                                onChange={(e) => setAiTone(e.target.value)}
+                                className="text-[10px] font-bold bg-slate-900 border border-slate-700 text-orange-400 rounded px-1.5 py-0.5 focus:outline-none"
+                              >
+                                <option value="Insightful & Witty">Insightful & Witty</option>
+                                <option value="Professional & Direct">Professional & Direct</option>
+                                <option value="Consultative Expert">Consultative Expert</option>
+                                <option value="Direct Pitch">Direct Sales Pitch</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Response Mode Selector (Direct Representative vs Community Advocate) */}
+                          <div className="grid grid-cols-2 gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+                            <button
+                              onClick={() => setResponseMode('direct')}
+                              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                responseMode === 'direct'
+                                  ? 'bg-orange-500 text-white shadow-md'
+                                  : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <Icon name="user" className="w-3.5 h-3.5" />
+                              <span>Direct from Crooked Monkey</span>
+                            </button>
+
+                            <button
+                              onClick={() => setResponseMode('advocate')}
+                              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                responseMode === 'advocate'
+                                  ? 'bg-orange-500 text-white shadow-md'
+                                  : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <Icon name="users" className="w-3.5 h-3.5" />
+                              <span>End-User / Advocate</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Output Text Field */}
+                        <div className={`p-4 rounded-xl text-xs leading-relaxed font-mono relative border ${
+                          darkMode ? 'bg-[#0E1526]/90 border-slate-800' : 'bg-white border-slate-200'
+                        }`}>
+                          {responseMode === 'direct' ? (
+                            selectedConversation.suggestedResponseDirect ? (
+                              <p className="text-slate-300 whitespace-pre-line">{selectedConversation.suggestedResponseDirect}</p>
+                            ) : (
+                              <p className="text-slate-500 italic">No representative draft compiled yet. Click below to generate.</p>
+                            )
+                          ) : (
+                            selectedConversation.suggestedResponseAdvocate ? (
+                              <p className="text-slate-300 whitespace-pre-line">{selectedConversation.suggestedResponseAdvocate}</p>
+                            ) : (
+                              <p className="text-slate-500 italic">No community advocate recommendation compiled yet. Click below to generate.</p>
+                            )
+                          )}
+                        </div>
+
+                        {/* AI Prompt Tuning and refinement */}
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="text" 
+                              placeholder={responseMode === 'direct' ? "Instructions (e.g. 'Emphasize Patagonia hoodies')" : "Instructions (e.g. 'Sound like a startup operations manager')"}
+                              value={customPrompt}
+                              onChange={(e) => setCustomPrompt(e.target.value)}
+                              className="flex-1 text-xs px-3 py-2 bg-slate-900 border border-slate-850 rounded-lg text-slate-200 focus:outline-none focus:border-orange-500"
+                            />
+                            <button
+                              onClick={generateAIResponseWithGemini}
+                              disabled={aiGenerating}
+                              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-800 disabled:text-slate-500 text-xs font-bold text-white rounded-lg transition-all shadow-md flex items-center gap-1 shrink-0"
+                            >
+                              {aiGenerating ? (
+                                <>
+                                  <Icon name="refreshcw" className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Drafting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Icon name="cpu" className="w-3.5 h-3.5" />
+                                  <span>Draft / Refine</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Copy suggestion draft */}
+                        {((responseMode === 'direct' && selectedConversation.suggestedResponseDirect) || 
+                          (responseMode === 'advocate' && selectedConversation.suggestedResponseAdvocate)) && (
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-850/50">
+                            <div className="text-[10px] text-slate-400">
+                              Ready to copy your customized {responseMode === 'direct' ? 'direct representative pitch' : 'customer advocate post'}?
+                            </div>
+                            <button
+                              onClick={() => copyToClipboard(responseMode === 'direct' ? selectedConversation.suggestedResponseDirect : selectedConversation.suggestedResponseAdvocate)}
+                              className="flex items-center gap-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700 px-4 py-2 rounded-lg transition-all"
+                            >
+                              <Icon name="check" className="w-3.5 h-3.5" />
+                              <span>Copy Draft to Clipboard</span>
+                            </button>
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-2">
+                      <Icon name="cpu" className="w-10 h-10 text-slate-600 animate-pulse" />
+                      <p className="font-bold">No Conversation Selected</p>
+                      <p className="text-xs text-slate-500">Please choose a thread from the intent feed on the left to review analytics and response suggestions.</p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+            {}
+            {currentTab === 'alerts' && (
+              <div className="flex-1 overflow-y-auto p-8 space-y-8 max-w-4xl mx-auto">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Keyword Alert Center</h1>
+                  <p className="text-sm text-slate-400">Deploy custom keyword monitoring trackers and direct alerts across social channels and community developer hubs.</p>
+                </div>
+
+                {/* Creation block */}
+                <form onSubmit={handleAddKeyword} className="rounded-xl border border-slate-800 bg-slate-900/30 p-6 space-y-4">
+                  <h3 className="font-bold text-sm text-orange-400 uppercase tracking-wider">Create Custom Keyword Alert</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-2.5 text-slate-500 font-mono text-sm">#</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. customized apparel, organic cotton shirts, high-end gift kits..."
+                        value={newKeyword}
+                        onChange={(e) => setNewKeyword(e.target.value)}
+                        className="w-full text-xs pl-7 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 font-bold text-xs text-white rounded-lg transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>Deploy Tracker</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Our social scanning bots will continuously crawl open APIs and public forums for matching phrases, sending matching conversations directly into your active Opportunities Feed.
+                  </p>
+                </form>
+
+                {/* Tracker list */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-sm">Active Trackers ({keywords.length})</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {keywords.map(kw => (
+                      <div 
+                        key={kw.id}
+                        className={`p-4 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                          kw.active 
+                            ? 'bg-slate-900/55 border-slate-800/80' 
+                            : 'bg-transparent border-slate-900 opacity-60'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold font-mono text-xs text-orange-400">#{kw.phrase}</span>
+                            {kw.active ? (
+                              <span className="text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider">
+                                Active Scan
+                              </span>
+                            ) : (
+                              <span className="text-[8px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded-full">
+                                Paused
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500">Matched {kw.count || 0} times during past month</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleKeyword(kw.id)}
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
+                              kw.active 
+                                ? 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white' 
+                                : 'bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20'
+                            }`}
+                          >
+                            {kw.active ? 'Pause' : 'Activate'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteKeyword(kw.id)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                            title="Delete keyword"
+                          >
+                            <Icon name="trash2" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Webhook notification channels */}
+                <div className="rounded-xl border border-slate-800 bg-slate-900/10 p-6 space-y-4">
+                  <div>
+                    <h3 className="font-bold text-sm">Active Notification Channels</h3>
+                    <p className="text-xs text-slate-400">Receive instant push notifications when high-intent swag conversations are discovered.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { name: 'Slack channel', status: 'Connected', desc: 'Sends leads directly to #leads-swag' },
+                      { name: 'Discord Webhook', status: 'Connected', desc: 'Triggers alerts inside your target server' },
+                      { name: 'Daily Digest Email', status: 'Every 24h', desc: 'Structured report of all pending opportunities' }
+                    ].map((item, index) => (
+                      <div key={index} className="p-3 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold">{item.name}</span>
+                          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 rounded-full font-bold">
+                            {item.status}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<MainApp />);
+  </script>
+</body>
+</html>
